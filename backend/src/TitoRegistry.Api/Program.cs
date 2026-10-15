@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using TitoRegistry.Application;
 using TitoRegistry.Application.Common.Interfaces;
@@ -52,11 +53,21 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Asegurar que la base de datos se inicialice al arrancar
+// Aplicar migraciones pendientes automáticamente al iniciar
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-    await context.Database.EnsureCreatedAsync();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        logger.LogInformation("Verificando y aplicando migraciones en PostgreSQL...");
+        await context.Database.MigrateAsync();
+        logger.LogInformation("Base de datos PostgreSQL sincronizada exitosamente.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error al aplicar migraciones automáticas en la base de datos.");
+    }
 }
 
 // Configure the HTTP request pipeline.

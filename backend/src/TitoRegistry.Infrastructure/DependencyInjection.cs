@@ -11,10 +11,11 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? "Data Source=titoregistry.db";
+            ?? "Host=localhost;Port=5432;Database=titoregistry_db;Username=postgres;Password=postgres";
 
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlite(connectionString));
+            options.UseNpgsql(connectionString, b => 
+                b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
         services.AddScoped<IApplicationDbContext>(provider => 
             provider.GetRequiredService<ApplicationDbContext>());
