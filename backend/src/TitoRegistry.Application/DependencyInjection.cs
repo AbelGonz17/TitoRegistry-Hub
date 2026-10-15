@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using TitoRegistry.Application.Services;
 
 namespace TitoRegistry.Application;
 
@@ -6,7 +7,7 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // Application layer services, handlers, validators, or automapper can be registered here.
+        services.AddScoped<IServiceRegistryService, ServiceRegistryService>();
         return services;
     }
 }
