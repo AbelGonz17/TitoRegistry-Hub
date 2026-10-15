@@ -1,4 +1,7 @@
+using System.Reflection;
+using Microsoft.OpenApi;
 using TitoRegistry.Application;
+using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,15 +25,50 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Configure Swagger / OpenAPI
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "TitoRegistry-Hub API",
+        Version = "v1",
+        Description = "API empresarial para el registro de servicios de empleados, cálculo de comisiones y control de acumulados.",
+        Contact = new OpenApiContact
+        {
+            Name = "Equipo TitoRegistry-Hub",
+            Url = new Uri("https://github.com/AbelGonz17/TitoRegistry-Hub")
+        }
+    });
+
+    // Cargar documentación XML generada a partir de comentarios de código
+    var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
 
 var app = builder.Build();
+
+// Asegurar que la base de datos se inicialice al arrancar
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
+    await context.Database.EnsureCreatedAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TitoRegistry-Hub API v1");
+        c.RoutePrefix = "swagger"; // Disponible en http://localhost:PORT/swagger
+        c.DocumentTitle = "TitoRegistry API Documentation";
+    });
 }
 
 app.UseCors("AllowFrontend");
