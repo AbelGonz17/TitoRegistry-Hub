@@ -19,7 +19,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configuración de Empleado
+        // Configuración de Empleado (Conductores / Choferes)
         modelBuilder.Entity<Employee>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -39,7 +39,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Configuración de Tipo de Servicio
+        // Configuración de Tipo de Servicio de Transporte
         modelBuilder.Entity<ServiceType>(entity =>
         {
             entity.HasKey(s => s.Id);
@@ -54,7 +54,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Configuración de Registro de Servicio
+        // Configuración de Registro de Servicio Realizado
         modelBuilder.Entity<ServiceRecord>(entity =>
         {
             entity.HasKey(s => s.Id);
@@ -79,16 +79,16 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     private static void SeedData(ModelBuilder modelBuilder)
     {
-        // Empleados iniciales
+        // Conductores / Choferes de la empresa de transporte
         var emp1 = new
         {
             Id = 1,
-            Code = "EMP-001",
+            Code = "CHO-001",
             FullName = "Tito González",
-            Email = "tito.gonzalez@empresa.com",
-            Phone = "+1 (555) 234-8901",
-            Role = "Especialista Técnico Senior",
-            Department = "Infraestructura & Redes",
+            Email = "tito.gonzalez@titotransporte.com",
+            Phone = "+1 (809) 555-0101",
+            Role = "Conductor Ejecutivo de Rutas",
+            Department = "Ruta Norte (Santiago)",
             CommissionRate = 25.0m,
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
@@ -98,12 +98,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         var emp2 = new
         {
             Id = 2,
-            Code = "EMP-002",
+            Code = "CHO-002",
             FullName = "Sofía Ramírez",
-            Email = "sofia.ramirez@empresa.com",
-            Phone = "+1 (555) 456-1122",
-            Role = "Ingeniera de Soporte",
-            Department = "Soporte Técnico",
+            Email = "sofia.ramirez@titotransporte.com",
+            Phone = "+1 (809) 555-0102",
+            Role = "Conductora de Transporte Interurbano",
+            Department = "Ruta Cibao Central",
             CommissionRate = 22.0m,
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),
@@ -113,12 +113,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         var emp3 = new
         {
             Id = 3,
-            Code = "EMP-003",
+            Code = "CHO-003",
             FullName = "Carlos Mendoza",
-            Email = "carlos.mendoza@empresa.com",
-            Phone = "+1 (555) 789-3344",
-            Role = "Técnico de Campo",
-            Department = "Mantenimiento",
+            Email = "carlos.mendoza@titotransporte.com",
+            Phone = "+1 (809) 555-0103",
+            Role = "Operador de Carga y Fletes",
+            Department = "Transporte de Encomiendas",
             CommissionRate = 20.0m,
             IsActive = true,
             CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -127,14 +127,14 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
         modelBuilder.Entity<Employee>().HasData(emp1, emp2, emp3);
 
-        // Catálogo de tipos de servicios estándar
+        // Catálogo de Servicios de Transporte
         var st1 = new
         {
             Id = 1,
-            Name = "Instalación de Fibra Óptica y Enlace de Red",
-            Category = "Redes",
-            DefaultPrice = 450.0m,
-            Description = "Montaje de rack, cableado estructurado Cat6A/Fibra y configuración de routers.",
+            Name = "Traslado Privado / Ejecutivo a Santiago",
+            Category = "Viajes Interurbanos",
+            DefaultPrice = 180.0m,
+            Description = "Servicio de transporte privado puerta a puerta hacia Santiago de los Caballeros en vehículo de confort.",
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
@@ -143,10 +143,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         var st2 = new
         {
             Id = 2,
-            Name = "Mantenimiento Preventivo de Servidores",
-            Category = "Mantenimiento",
-            DefaultPrice = 320.0m,
-            Description = "Limpieza física, revisión de redundancia, actualización de firmware y logs.",
+            Name = "Transporte Expreso de Pasajeros (Ruta Santiago)",
+            Category = "Viajes Interurbanos",
+            DefaultPrice = 95.0m,
+            Description = "Servicio directo en van/minibús con paradas programadas hacia Santiago.",
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
@@ -155,10 +155,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         var st3 = new
         {
             Id = 3,
-            Name = "Diagnóstico y Reparación de Hardware",
-            Category = "Soporte",
-            DefaultPrice = 180.0m,
-            Description = "Reemplazo de componentes, fuentes de poder y pruebas de banco.",
+            Name = "Envío de Paquetería y Encomienda Expresa a Santiago",
+            Category = "Carga y Encomiendas",
+            DefaultPrice = 45.0m,
+            Description = "Transporte y entrega de paquetes, valijas y documentos el mismo día en Santiago.",
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
@@ -167,33 +167,57 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         var st4 = new
         {
             Id = 4,
-            Name = "Instalación de Sistema CCTV / Cámaras IP",
-            Category = "Seguridad",
-            DefaultPrice = 520.0m,
-            Description = "Configuración de NVR, cámaras PoE y acceso móvil remoto.",
+            Name = "Flete y Carga Liviana Interprovincial",
+            Category = "Carga y Encomiendas",
+            DefaultPrice = 280.0m,
+            Description = "Transporte de mercancía comercial o carga ligera en vehículo utilitario cerrado.",
             IsActive = true,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
 
-        modelBuilder.Entity<ServiceType>().HasData(st1, st2, st3, st4);
+        var st5 = new
+        {
+            Id = 5,
+            Name = "Traslado Turístico / Aeropuerto (Santiago - Cibao)",
+            Category = "Turismo & Aeropuerto",
+            DefaultPrice = 130.0m,
+            Description = "Servicio especializado de recogida y traslado desde o hacia el Aeropuerto del Cibao (STI).",
+            IsActive = true,
+            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
 
-        // Servicios iniciales para Tito González (EMP-001) para que ya tenga acumulado demostrable
+        var st6 = new
+        {
+            Id = 6,
+            Name = "Alquiler de Vehículo con Conductor por Día (Santiago y Región)",
+            Category = "Servicios Especiales",
+            DefaultPrice = 350.0m,
+            Description = "Disponibilidad completa de chofer y vehículo para gestiones corporativas o familiares en Santiago.",
+            IsActive = true,
+            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<ServiceType>().HasData(st1, st2, st3, st4, st5, st6);
+
+        // Servicios iniciales de transporte registrados para Tito González (CHO-001)
         var srv1 = new
         {
             Id = 1,
             ServiceCode = "SRV-2026-001",
             EmployeeId = 1,
-            ServiceTypeId = 1, // Redes ($450)
-            ClientName = "Corporación Andina S.A.",
-            ClientAddress = "Av. Principal #405",
-            ClientPhone = "+1 555-901-2001",
-            ServiceDate = new DateTime(2026, 9, 15, 10, 0, 0, DateTimeKind.Utc),
-            PriceCharged = 480.0m,
-            EmployeeEarnings = 120.0m, // 25% de 480
+            ServiceTypeId = 1, // Traslado Ejecutivo a Santiago
+            ClientName = "Ing. Manuel De Los Santos",
+            ClientAddress = "Santo Domingo -> Los Jardines Metropolitanos, Santiago",
+            ClientPhone = "+1 (809) 555-1020",
+            ServiceDate = new DateTime(2026, 9, 18, 8, 30, 0, DateTimeKind.Utc),
+            PriceCharged = 180.0m,
+            EmployeeEarnings = 45.0m, // 25% de 180
             Status = ServiceStatus.Completado,
-            Notes = "Instalación de 8 puntos de red y prueba de ancho de banda.",
-            CreatedAt = new DateTime(2026, 9, 15, 12, 0, 0, DateTimeKind.Utc),
+            Notes = "Viaje ejecutivo de ida a Santiago sin contratiempos.",
+            CreatedAt = new DateTime(2026, 9, 18, 12, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
 
@@ -202,16 +226,16 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Id = 2,
             ServiceCode = "SRV-2026-002",
             EmployeeId = 1,
-            ServiceTypeId = 4, // CCTV ($520)
-            ClientName = "Logística Express del Norte",
-            ClientAddress = "Zona Industrial Este, Galpón 4",
-            ClientPhone = "+1 555-901-2002",
-            ServiceDate = new DateTime(2026, 10, 5, 14, 0, 0, DateTimeKind.Utc),
-            PriceCharged = 550.0m,
-            EmployeeEarnings = 137.5m, // 25% de 550
+            ServiceTypeId = 6, // Conductor por día en Santiago
+            ClientName = "Grupo Farmacéutico Cibao",
+            ClientAddress = "Av. Juan Pablo Duarte #50, Santiago",
+            ClientPhone = "+1 (809) 555-2040",
+            ServiceDate = new DateTime(2026, 10, 6, 9, 0, 0, DateTimeKind.Utc),
+            PriceCharged = 350.0m,
+            EmployeeEarnings = 87.5m, // 25% de 350
             Status = ServiceStatus.Completado,
-            Notes = "Instalación de 6 cámaras IP con visión nocturna calibrada.",
-            CreatedAt = new DateTime(2026, 10, 5, 18, 0, 0, DateTimeKind.Utc),
+            Notes = "Recorrido de sucursales en Santiago durante toda la jornada.",
+            CreatedAt = new DateTime(2026, 10, 6, 18, 30, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
 
@@ -220,16 +244,16 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Id = 3,
             ServiceCode = "SRV-2026-003",
             EmployeeId = 1,
-            ServiceTypeId = 2, // Mantenimiento
-            ClientName = "Financiera Futuro",
-            ClientAddress = "Torre Empresarial, Nivel 14",
-            ClientPhone = "+1 555-901-2003",
-            ServiceDate = new DateTime(2026, 10, 12, 9, 0, 0, DateTimeKind.Utc),
-            PriceCharged = 350.0m,
-            EmployeeEarnings = 87.5m, // 25% de 350
+            ServiceTypeId = 3, // Encomienda Expresa a Santiago
+            ClientName = "Distribuidora Nacional del Norte",
+            ClientAddress = "Zona Franca Industrial Víctor Espaillat Mera, Santiago",
+            ClientPhone = "+1 (809) 555-3050",
+            ServiceDate = new DateTime(2026, 10, 14, 11, 0, 0, DateTimeKind.Utc),
+            PriceCharged = 50.0m,
+            EmployeeEarnings = 12.5m, // 25% de 50
             Status = ServiceStatus.Completado,
-            Notes = "Mantenimiento preventivo semestral de servidores en rack.",
-            CreatedAt = new DateTime(2026, 10, 12, 13, 0, 0, DateTimeKind.Utc),
+            Notes = "Entrega de documentos prioritarios con firma de recepción.",
+            CreatedAt = new DateTime(2026, 10, 14, 15, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
 

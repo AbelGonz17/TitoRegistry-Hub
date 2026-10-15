@@ -97,9 +97,9 @@ namespace TitoRegistry.Infrastructure.Migrations
                 columns: new[] { "Id", "Code", "CommissionRate", "CreatedAt", "Department", "Email", "FullName", "IsActive", "Phone", "Role", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, "EMP-001", 25.0m, new DateTime(2026, 1, 10, 0, 0, 0, 0, DateTimeKind.Utc), "Infraestructura & Redes", "tito.gonzalez@empresa.com", "Tito González", true, "+1 (555) 234-8901", "Especialista Técnico Senior", null },
-                    { 2, "EMP-002", 22.0m, new DateTime(2026, 1, 15, 0, 0, 0, 0, DateTimeKind.Utc), "Soporte Técnico", "sofia.ramirez@empresa.com", "Sofía Ramírez", true, "+1 (555) 456-1122", "Ingeniera de Soporte", null },
-                    { 3, "EMP-003", 20.0m, new DateTime(2026, 2, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Mantenimiento", "carlos.mendoza@empresa.com", "Carlos Mendoza", true, "+1 (555) 789-3344", "Técnico de Campo", null }
+                    { 1, "CHO-001", 25.0m, new DateTime(2026, 1, 10, 0, 0, 0, 0, DateTimeKind.Utc), "Ruta Norte (Santiago)", "tito.gonzalez@titotransporte.com", "Tito González", true, "+1 (809) 555-0101", "Conductor Ejecutivo de Rutas", null },
+                    { 2, "CHO-002", 22.0m, new DateTime(2026, 1, 15, 0, 0, 0, 0, DateTimeKind.Utc), "Ruta Cibao Central", "sofia.ramirez@titotransporte.com", "Sofía Ramírez", true, "+1 (809) 555-0102", "Conductora de Transporte Interurbano", null },
+                    { 3, "CHO-003", 20.0m, new DateTime(2026, 2, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Transporte de Encomiendas", "carlos.mendoza@titotransporte.com", "Carlos Mendoza", true, "+1 (809) 555-0103", "Operador de Carga y Fletes", null }
                 });
 
             migrationBuilder.InsertData(
@@ -107,10 +107,12 @@ namespace TitoRegistry.Infrastructure.Migrations
                 columns: new[] { "Id", "Category", "CreatedAt", "DefaultPrice", "Description", "IsActive", "Name", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, "Redes", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 450.0m, "Montaje de rack, cableado estructurado Cat6A/Fibra y configuración de routers.", true, "Instalación de Fibra Óptica y Enlace de Red", null },
-                    { 2, "Mantenimiento", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 320.0m, "Limpieza física, revisión de redundancia, actualización de firmware y logs.", true, "Mantenimiento Preventivo de Servidores", null },
-                    { 3, "Soporte", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 180.0m, "Reemplazo de componentes, fuentes de poder y pruebas de banco.", true, "Diagnóstico y Reparación de Hardware", null },
-                    { 4, "Seguridad", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 520.0m, "Configuración de NVR, cámaras PoE y acceso móvil remoto.", true, "Instalación de Sistema CCTV / Cámaras IP", null }
+                    { 1, "Viajes Interurbanos", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 180.0m, "Servicio de transporte privado puerta a puerta hacia Santiago de los Caballeros en vehículo de confort.", true, "Traslado Privado / Ejecutivo a Santiago", null },
+                    { 2, "Viajes Interurbanos", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 95.0m, "Servicio directo en van/minibús con paradas programadas hacia Santiago.", true, "Transporte Expreso de Pasajeros (Ruta Santiago)", null },
+                    { 3, "Carga y Encomiendas", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 45.0m, "Transporte y entrega de paquetes, valijas y documentos el mismo día en Santiago.", true, "Envío de Paquetería y Encomienda Expresa a Santiago", null },
+                    { 4, "Carga y Encomiendas", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 280.0m, "Transporte de mercancía comercial o carga ligera en vehículo utilitario cerrado.", true, "Flete y Carga Liviana Interprovincial", null },
+                    { 5, "Turismo & Aeropuerto", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 130.0m, "Servicio especializado de recogida y traslado desde o hacia el Aeropuerto del Cibao (STI).", true, "Traslado Turístico / Aeropuerto (Santiago - Cibao)", null },
+                    { 6, "Servicios Especiales", new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), 350.0m, "Disponibilidad completa de chofer y vehículo para gestiones corporativas o familiares en Santiago.", true, "Alquiler de Vehículo con Conductor por Día (Santiago y Región)", null }
                 });
 
             migrationBuilder.InsertData(
@@ -118,9 +120,9 @@ namespace TitoRegistry.Infrastructure.Migrations
                 columns: new[] { "Id", "ClientAddress", "ClientName", "ClientPhone", "CreatedAt", "EmployeeEarnings", "EmployeeId", "Notes", "PriceCharged", "ServiceCode", "ServiceDate", "ServiceTypeId", "Status", "UpdatedAt" },
                 values: new object[,]
                 {
-                    { 1, "Av. Principal #405", "Corporación Andina S.A.", "+1 555-901-2001", new DateTime(2026, 9, 15, 12, 0, 0, 0, DateTimeKind.Utc), 120.0m, 1, "Instalación de 8 puntos de red y prueba de ancho de banda.", 480.0m, "SRV-2026-001", new DateTime(2026, 9, 15, 10, 0, 0, 0, DateTimeKind.Utc), 1, 3, null },
-                    { 2, "Zona Industrial Este, Galpón 4", "Logística Express del Norte", "+1 555-901-2002", new DateTime(2026, 10, 5, 18, 0, 0, 0, DateTimeKind.Utc), 137.5m, 1, "Instalación de 6 cámaras IP con visión nocturna calibrada.", 550.0m, "SRV-2026-002", new DateTime(2026, 10, 5, 14, 0, 0, 0, DateTimeKind.Utc), 4, 3, null },
-                    { 3, "Torre Empresarial, Nivel 14", "Financiera Futuro", "+1 555-901-2003", new DateTime(2026, 10, 12, 13, 0, 0, 0, DateTimeKind.Utc), 87.5m, 1, "Mantenimiento preventivo semestral de servidores en rack.", 350.0m, "SRV-2026-003", new DateTime(2026, 10, 12, 9, 0, 0, 0, DateTimeKind.Utc), 2, 3, null }
+                    { 1, "Santo Domingo -> Los Jardines Metropolitanos, Santiago", "Ing. Manuel De Los Santos", "+1 (809) 555-1020", new DateTime(2026, 9, 18, 12, 0, 0, 0, DateTimeKind.Utc), 45.0m, 1, "Viaje ejecutivo de ida a Santiago sin contratiempos.", 180.0m, "SRV-2026-001", new DateTime(2026, 9, 18, 8, 30, 0, 0, DateTimeKind.Utc), 1, 3, null },
+                    { 2, "Av. Juan Pablo Duarte #50, Santiago", "Grupo Farmacéutico Cibao", "+1 (809) 555-2040", new DateTime(2026, 10, 6, 18, 30, 0, 0, DateTimeKind.Utc), 87.5m, 1, "Recorrido de sucursales en Santiago durante toda la jornada.", 350.0m, "SRV-2026-002", new DateTime(2026, 10, 6, 9, 0, 0, 0, DateTimeKind.Utc), 6, 3, null },
+                    { 3, "Zona Franca Industrial Víctor Espaillat Mera, Santiago", "Distribuidora Nacional del Norte", "+1 (809) 555-3050", new DateTime(2026, 10, 14, 15, 0, 0, 0, DateTimeKind.Utc), 12.5m, 1, "Entrega de documentos prioritarios con firma de recepción.", 50.0m, "SRV-2026-003", new DateTime(2026, 10, 14, 11, 0, 0, 0, DateTimeKind.Utc), 3, 3, null }
                 });
 
             migrationBuilder.CreateIndex(

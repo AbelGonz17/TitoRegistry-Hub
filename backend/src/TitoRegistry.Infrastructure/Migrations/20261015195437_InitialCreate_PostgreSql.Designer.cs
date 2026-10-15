@@ -12,7 +12,7 @@ using TitoRegistry.Infrastructure.Persistence;
 namespace TitoRegistry.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261015194630_InitialCreate_PostgreSql")]
+    [Migration("20261015195437_InitialCreate_PostgreSql")]
     partial class InitialCreate_PostgreSql
     {
         /// <inheritdoc />
@@ -87,41 +87,41 @@ namespace TitoRegistry.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Code = "EMP-001",
+                            Code = "CHO-001",
                             CommissionRate = 25.0m,
                             CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Infraestructura & Redes",
-                            Email = "tito.gonzalez@empresa.com",
+                            Department = "Ruta Norte (Santiago)",
+                            Email = "tito.gonzalez@titotransporte.com",
                             FullName = "Tito González",
                             IsActive = true,
-                            Phone = "+1 (555) 234-8901",
-                            Role = "Especialista Técnico Senior"
+                            Phone = "+1 (809) 555-0101",
+                            Role = "Conductor Ejecutivo de Rutas"
                         },
                         new
                         {
                             Id = 2,
-                            Code = "EMP-002",
+                            Code = "CHO-002",
                             CommissionRate = 22.0m,
                             CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Soporte Técnico",
-                            Email = "sofia.ramirez@empresa.com",
+                            Department = "Ruta Cibao Central",
+                            Email = "sofia.ramirez@titotransporte.com",
                             FullName = "Sofía Ramírez",
                             IsActive = true,
-                            Phone = "+1 (555) 456-1122",
-                            Role = "Ingeniera de Soporte"
+                            Phone = "+1 (809) 555-0102",
+                            Role = "Conductora de Transporte Interurbano"
                         },
                         new
                         {
                             Id = 3,
-                            Code = "EMP-003",
+                            Code = "CHO-003",
                             CommissionRate = 20.0m,
                             CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Mantenimiento",
-                            Email = "carlos.mendoza@empresa.com",
+                            Department = "Transporte de Encomiendas",
+                            Email = "carlos.mendoza@titotransporte.com",
                             FullName = "Carlos Mendoza",
                             IsActive = true,
-                            Phone = "+1 (555) 789-3344",
-                            Role = "Técnico de Campo"
+                            Phone = "+1 (809) 555-0103",
+                            Role = "Operador de Carga y Fletes"
                         });
                 });
 
@@ -199,49 +199,49 @@ namespace TitoRegistry.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            ClientAddress = "Av. Principal #405",
-                            ClientName = "Corporación Andina S.A.",
-                            ClientPhone = "+1 555-901-2001",
-                            CreatedAt = new DateTime(2026, 9, 15, 12, 0, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 120.0m,
+                            ClientAddress = "Santo Domingo -> Los Jardines Metropolitanos, Santiago",
+                            ClientName = "Ing. Manuel De Los Santos",
+                            ClientPhone = "+1 (809) 555-1020",
+                            CreatedAt = new DateTime(2026, 9, 18, 12, 0, 0, 0, DateTimeKind.Utc),
+                            EmployeeEarnings = 45.0m,
                             EmployeeId = 1,
-                            Notes = "Instalación de 8 puntos de red y prueba de ancho de banda.",
-                            PriceCharged = 480.0m,
+                            Notes = "Viaje ejecutivo de ida a Santiago sin contratiempos.",
+                            PriceCharged = 180.0m,
                             ServiceCode = "SRV-2026-001",
-                            ServiceDate = new DateTime(2026, 9, 15, 10, 0, 0, 0, DateTimeKind.Utc),
+                            ServiceDate = new DateTime(2026, 9, 18, 8, 30, 0, 0, DateTimeKind.Utc),
                             ServiceTypeId = 1,
                             Status = 3
                         },
                         new
                         {
                             Id = 2,
-                            ClientAddress = "Zona Industrial Este, Galpón 4",
-                            ClientName = "Logística Express del Norte",
-                            ClientPhone = "+1 555-901-2002",
-                            CreatedAt = new DateTime(2026, 10, 5, 18, 0, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 137.5m,
+                            ClientAddress = "Av. Juan Pablo Duarte #50, Santiago",
+                            ClientName = "Grupo Farmacéutico Cibao",
+                            ClientPhone = "+1 (809) 555-2040",
+                            CreatedAt = new DateTime(2026, 10, 6, 18, 30, 0, 0, DateTimeKind.Utc),
+                            EmployeeEarnings = 87.5m,
                             EmployeeId = 1,
-                            Notes = "Instalación de 6 cámaras IP con visión nocturna calibrada.",
-                            PriceCharged = 550.0m,
+                            Notes = "Recorrido de sucursales en Santiago durante toda la jornada.",
+                            PriceCharged = 350.0m,
                             ServiceCode = "SRV-2026-002",
-                            ServiceDate = new DateTime(2026, 10, 5, 14, 0, 0, 0, DateTimeKind.Utc),
-                            ServiceTypeId = 4,
+                            ServiceDate = new DateTime(2026, 10, 6, 9, 0, 0, 0, DateTimeKind.Utc),
+                            ServiceTypeId = 6,
                             Status = 3
                         },
                         new
                         {
                             Id = 3,
-                            ClientAddress = "Torre Empresarial, Nivel 14",
-                            ClientName = "Financiera Futuro",
-                            ClientPhone = "+1 555-901-2003",
-                            CreatedAt = new DateTime(2026, 10, 12, 13, 0, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 87.5m,
+                            ClientAddress = "Zona Franca Industrial Víctor Espaillat Mera, Santiago",
+                            ClientName = "Distribuidora Nacional del Norte",
+                            ClientPhone = "+1 (809) 555-3050",
+                            CreatedAt = new DateTime(2026, 10, 14, 15, 0, 0, 0, DateTimeKind.Utc),
+                            EmployeeEarnings = 12.5m,
                             EmployeeId = 1,
-                            Notes = "Mantenimiento preventivo semestral de servidores en rack.",
-                            PriceCharged = 350.0m,
+                            Notes = "Entrega de documentos prioritarios con firma de recepción.",
+                            PriceCharged = 50.0m,
                             ServiceCode = "SRV-2026-003",
-                            ServiceDate = new DateTime(2026, 10, 12, 9, 0, 0, 0, DateTimeKind.Utc),
-                            ServiceTypeId = 2,
+                            ServiceDate = new DateTime(2026, 10, 14, 11, 0, 0, 0, DateTimeKind.Utc),
+                            ServiceTypeId = 3,
                             Status = 3
                         });
                 });
@@ -290,42 +290,62 @@ namespace TitoRegistry.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Category = "Redes",
+                            Category = "Viajes Interurbanos",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 450.0m,
-                            Description = "Montaje de rack, cableado estructurado Cat6A/Fibra y configuración de routers.",
+                            DefaultPrice = 180.0m,
+                            Description = "Servicio de transporte privado puerta a puerta hacia Santiago de los Caballeros en vehículo de confort.",
                             IsActive = true,
-                            Name = "Instalación de Fibra Óptica y Enlace de Red"
+                            Name = "Traslado Privado / Ejecutivo a Santiago"
                         },
                         new
                         {
                             Id = 2,
-                            Category = "Mantenimiento",
+                            Category = "Viajes Interurbanos",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 320.0m,
-                            Description = "Limpieza física, revisión de redundancia, actualización de firmware y logs.",
+                            DefaultPrice = 95.0m,
+                            Description = "Servicio directo en van/minibús con paradas programadas hacia Santiago.",
                             IsActive = true,
-                            Name = "Mantenimiento Preventivo de Servidores"
+                            Name = "Transporte Expreso de Pasajeros (Ruta Santiago)"
                         },
                         new
                         {
                             Id = 3,
-                            Category = "Soporte",
+                            Category = "Carga y Encomiendas",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 180.0m,
-                            Description = "Reemplazo de componentes, fuentes de poder y pruebas de banco.",
+                            DefaultPrice = 45.0m,
+                            Description = "Transporte y entrega de paquetes, valijas y documentos el mismo día en Santiago.",
                             IsActive = true,
-                            Name = "Diagnóstico y Reparación de Hardware"
+                            Name = "Envío de Paquetería y Encomienda Expresa a Santiago"
                         },
                         new
                         {
                             Id = 4,
-                            Category = "Seguridad",
+                            Category = "Carga y Encomiendas",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 520.0m,
-                            Description = "Configuración de NVR, cámaras PoE y acceso móvil remoto.",
+                            DefaultPrice = 280.0m,
+                            Description = "Transporte de mercancía comercial o carga ligera en vehículo utilitario cerrado.",
                             IsActive = true,
-                            Name = "Instalación de Sistema CCTV / Cámaras IP"
+                            Name = "Flete y Carga Liviana Interprovincial"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Category = "Turismo & Aeropuerto",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 130.0m,
+                            Description = "Servicio especializado de recogida y traslado desde o hacia el Aeropuerto del Cibao (STI).",
+                            IsActive = true,
+                            Name = "Traslado Turístico / Aeropuerto (Santiago - Cibao)"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Category = "Servicios Especiales",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 350.0m,
+                            Description = "Disponibilidad completa de chofer y vehículo para gestiones corporativas o familiares en Santiago.",
+                            IsActive = true,
+                            Name = "Alquiler de Vehículo con Conductor por Día (Santiago y Región)"
                         });
                 });
 
