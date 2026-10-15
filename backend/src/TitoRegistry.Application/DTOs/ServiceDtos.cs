@@ -72,31 +72,14 @@ public class EmployeeSummaryDto
     public decimal CommissionRate { get; set; }
     public bool IsActive { get; set; }
 
-    /// <summary>
-    /// Cantidad total de servicios completados por el empleado.
-    /// </summary>
     public int TotalServicesCompleted { get; set; }
-
-    /// <summary>
-    /// Monto total acumulado ganado por el empleado por comisiones.
-    /// </summary>
     public decimal TotalEarningsAccumulated { get; set; }
-
-    /// <summary>
-    /// Monto total facturado a los clientes por los servicios de este empleado.
-    /// </summary>
     public decimal TotalBilled { get; set; }
 
-    /// <summary>
-    /// Promedio de ganancia acumulada por cada servicio completado.
-    /// </summary>
     public decimal AverageEarningsPerService => TotalServicesCompleted > 0 
         ? Math.Round(TotalEarningsAccumulated / TotalServicesCompleted, 2) 
         : 0m;
 
-    /// <summary>
-    /// Lista de los servicios más recientes registrados por el empleado.
-    /// </summary>
     public List<ServiceRecordDto> RecentServices { get; set; } = new();
 }
 
@@ -106,12 +89,56 @@ public class EmployeeDto
     public string Code { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public decimal CommissionRate { get; set; }
     public bool IsActive { get; set; }
 }
 
+/// <summary>
+/// DTO para crear un nuevo tipo de servicio en el catálogo.
+/// </summary>
+public class CreateServiceTypeDto
+{
+    [Required(ErrorMessage = "El nombre del tipo de servicio es obligatorio.")]
+    [MaxLength(150, ErrorMessage = "El nombre no puede exceder 150 caracteres.")]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(100)]
+    public string Category { get; set; } = "General";
+
+    [Range(0, 1000000, ErrorMessage = "El precio sugerido no puede ser negativo.")]
+    public decimal DefaultPrice { get; set; }
+
+    [MaxLength(500)]
+    public string Description { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// DTO para actualizar un tipo de servicio existente en el catálogo.
+/// </summary>
+public class UpdateServiceTypeDto
+{
+    [Required(ErrorMessage = "El nombre del tipo de servicio es obligatorio.")]
+    [MaxLength(150, ErrorMessage = "El nombre no puede exceder 150 caracteres.")]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(100)]
+    public string Category { get; set; } = "General";
+
+    [Range(0, 1000000, ErrorMessage = "El precio sugerido no puede ser negativo.")]
+    public decimal DefaultPrice { get; set; }
+
+    [MaxLength(500)]
+    public string Description { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
+/// Representación de un tipo de servicio para consulta.
+/// </summary>
 public class ServiceTypeDto
 {
     public int Id { get; set; }
@@ -120,4 +147,5 @@ public class ServiceTypeDto
     public decimal DefaultPrice { get; set; }
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

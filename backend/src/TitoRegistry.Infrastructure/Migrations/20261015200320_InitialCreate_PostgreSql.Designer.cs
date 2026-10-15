@@ -12,7 +12,7 @@ using TitoRegistry.Infrastructure.Persistence;
 namespace TitoRegistry.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261015195437_InitialCreate_PostgreSql")]
+    [Migration("20261015200320_InitialCreate_PostgreSql")]
     partial class InitialCreate_PostgreSql
     {
         /// <inheritdoc />
@@ -45,6 +45,9 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Department")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -61,6 +64,9 @@ namespace TitoRegistry.Infrastructure.Migrations
                         .HasColumnType("character varying(150)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Phone")
@@ -94,6 +100,7 @@ namespace TitoRegistry.Infrastructure.Migrations
                             Email = "tito.gonzalez@titotransporte.com",
                             FullName = "Tito González",
                             IsActive = true,
+                            IsDeleted = false,
                             Phone = "+1 (809) 555-0101",
                             Role = "Conductor Ejecutivo de Rutas"
                         },
@@ -107,6 +114,7 @@ namespace TitoRegistry.Infrastructure.Migrations
                             Email = "sofia.ramirez@titotransporte.com",
                             FullName = "Sofía Ramírez",
                             IsActive = true,
+                            IsDeleted = false,
                             Phone = "+1 (809) 555-0102",
                             Role = "Conductora de Transporte Interurbano"
                         },
@@ -120,6 +128,7 @@ namespace TitoRegistry.Infrastructure.Migrations
                             Email = "carlos.mendoza@titotransporte.com",
                             FullName = "Carlos Mendoza",
                             IsActive = true,
+                            IsDeleted = false,
                             Phone = "+1 (809) 555-0103",
                             Role = "Operador de Carga y Fletes"
                         });
@@ -151,12 +160,18 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("EmployeeEarnings")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Notes")
                         .IsRequired()
@@ -194,56 +209,6 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.HasIndex("EmployeeId", "ServiceDate");
 
                     b.ToTable("ServiceRecords");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            ClientAddress = "Santo Domingo -> Los Jardines Metropolitanos, Santiago",
-                            ClientName = "Ing. Manuel De Los Santos",
-                            ClientPhone = "+1 (809) 555-1020",
-                            CreatedAt = new DateTime(2026, 9, 18, 12, 0, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 45.0m,
-                            EmployeeId = 1,
-                            Notes = "Viaje ejecutivo de ida a Santiago sin contratiempos.",
-                            PriceCharged = 180.0m,
-                            ServiceCode = "SRV-2026-001",
-                            ServiceDate = new DateTime(2026, 9, 18, 8, 30, 0, 0, DateTimeKind.Utc),
-                            ServiceTypeId = 1,
-                            Status = 3
-                        },
-                        new
-                        {
-                            Id = 2,
-                            ClientAddress = "Av. Juan Pablo Duarte #50, Santiago",
-                            ClientName = "Grupo Farmacéutico Cibao",
-                            ClientPhone = "+1 (809) 555-2040",
-                            CreatedAt = new DateTime(2026, 10, 6, 18, 30, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 87.5m,
-                            EmployeeId = 1,
-                            Notes = "Recorrido de sucursales en Santiago durante toda la jornada.",
-                            PriceCharged = 350.0m,
-                            ServiceCode = "SRV-2026-002",
-                            ServiceDate = new DateTime(2026, 10, 6, 9, 0, 0, 0, DateTimeKind.Utc),
-                            ServiceTypeId = 6,
-                            Status = 3
-                        },
-                        new
-                        {
-                            Id = 3,
-                            ClientAddress = "Zona Franca Industrial Víctor Espaillat Mera, Santiago",
-                            ClientName = "Distribuidora Nacional del Norte",
-                            ClientPhone = "+1 (809) 555-3050",
-                            CreatedAt = new DateTime(2026, 10, 14, 15, 0, 0, 0, DateTimeKind.Utc),
-                            EmployeeEarnings = 12.5m,
-                            EmployeeId = 1,
-                            Notes = "Entrega de documentos prioritarios con firma de recepción.",
-                            PriceCharged = 50.0m,
-                            ServiceCode = "SRV-2026-003",
-                            ServiceDate = new DateTime(2026, 10, 14, 11, 0, 0, 0, DateTimeKind.Utc),
-                            ServiceTypeId = 3,
-                            Status = 3
-                        });
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.ServiceType", b =>
@@ -266,12 +231,18 @@ namespace TitoRegistry.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
@@ -285,68 +256,6 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ServiceTypes");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Category = "Viajes Interurbanos",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 180.0m,
-                            Description = "Servicio de transporte privado puerta a puerta hacia Santiago de los Caballeros en vehículo de confort.",
-                            IsActive = true,
-                            Name = "Traslado Privado / Ejecutivo a Santiago"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Category = "Viajes Interurbanos",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 95.0m,
-                            Description = "Servicio directo en van/minibús con paradas programadas hacia Santiago.",
-                            IsActive = true,
-                            Name = "Transporte Expreso de Pasajeros (Ruta Santiago)"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Category = "Carga y Encomiendas",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 45.0m,
-                            Description = "Transporte y entrega de paquetes, valijas y documentos el mismo día en Santiago.",
-                            IsActive = true,
-                            Name = "Envío de Paquetería y Encomienda Expresa a Santiago"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            Category = "Carga y Encomiendas",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 280.0m,
-                            Description = "Transporte de mercancía comercial o carga ligera en vehículo utilitario cerrado.",
-                            IsActive = true,
-                            Name = "Flete y Carga Liviana Interprovincial"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            Category = "Turismo & Aeropuerto",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 130.0m,
-                            Description = "Servicio especializado de recogida y traslado desde o hacia el Aeropuerto del Cibao (STI).",
-                            IsActive = true,
-                            Name = "Traslado Turístico / Aeropuerto (Santiago - Cibao)"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            Category = "Servicios Especiales",
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            DefaultPrice = 350.0m,
-                            Description = "Disponibilidad completa de chofer y vehículo para gestiones corporativas o familiares en Santiago.",
-                            IsActive = true,
-                            Name = "Alquiler de Vehículo con Conductor por Día (Santiago y Región)"
-                        });
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.ServiceRecord", b =>

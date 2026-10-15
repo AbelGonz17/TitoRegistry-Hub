@@ -3,7 +3,8 @@ using TitoRegistry.Domain.Common;
 namespace TitoRegistry.Domain.Entities;
 
 /// <summary>
-/// Entidad de catálogo que define un tipo de servicio ofrecido por la empresa.
+/// Entidad de catálogo dinámico que define un tipo de servicio de transporte.
+/// Permite creación, actualización y borrado lógico (Soft Delete).
 /// </summary>
 public class ServiceType : BaseEntity
 {
@@ -22,8 +23,24 @@ public class ServiceType : BaseEntity
 
     public ServiceType(string name, string category, decimal defaultPrice, string description = "")
     {
+        ValidateAndAssign(name, category, defaultPrice, description);
+        IsActive = true;
+        CreatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Actualiza todos los datos del tipo de servicio.
+    /// </summary>
+    public void Update(string name, string category, decimal defaultPrice, string description)
+    {
+        ValidateAndAssign(name, category, defaultPrice, description);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private void ValidateAndAssign(string name, string category, decimal defaultPrice, string description)
+    {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("El nombre del servicio no puede estar vacío.", nameof(name));
+            throw new ArgumentException("El nombre del servicio es obligatorio.", nameof(name));
 
         if (defaultPrice < 0)
             throw new ArgumentOutOfRangeException(nameof(defaultPrice), "El precio predeterminado no puede ser negativo.");
@@ -32,34 +49,6 @@ public class ServiceType : BaseEntity
         Category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();
         DefaultPrice = defaultPrice;
         Description = description?.Trim() ?? string.Empty;
-        IsActive = true;
-        CreatedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Actualiza el precio sugerido / base del servicio en el catálogo.
-    /// </summary>
-    public void UpdateDefaultPrice(decimal newPrice)
-    {
-        if (newPrice < 0)
-            throw new ArgumentOutOfRangeException(nameof(newPrice), "El precio no puede ser negativo.");
-
-        DefaultPrice = newPrice;
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Actualiza la información descriptiva del servicio.
-    /// </summary>
-    public void UpdateDetails(string name, string category, string description)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("El nombre del servicio es obligatorio.", nameof(name));
-
-        Name = name.Trim();
-        Category = string.IsNullOrWhiteSpace(category) ? "General" : category.Trim();
-        Description = description?.Trim() ?? string.Empty;
-        UpdatedAt = DateTime.UtcNow;
     }
 
     public void Deactivate()
@@ -72,5 +61,14 @@ public class ServiceType : BaseEntity
     {
         IsActive = true;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Realiza el borrado lógico del tipo de servicio y lo marca como inactivo.
+    /// </summary>
+    public override void SoftDelete()
+    {
+        base.SoftDelete();
+        IsActive = false;
     }
 }

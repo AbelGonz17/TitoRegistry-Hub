@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Domain.Entities;
-using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Infrastructure.Persistence;
 
@@ -18,6 +17,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Filtros globales para Soft Delete
+        modelBuilder.Entity<Employee>().HasQueryFilter(e => !e.IsDeleted);
+        modelBuilder.Entity<ServiceType>().HasQueryFilter(s => !s.IsDeleted);
+        modelBuilder.Entity<ServiceRecord>().HasQueryFilter(s => !s.IsDeleted);
 
         // Configuración de Empleado (Conductores / Choferes)
         modelBuilder.Entity<Employee>(entity =>
@@ -39,7 +43,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // Configuración de Tipo de Servicio de Transporte
+        // Configuración de Tipo de Servicio (Catálogo Dinámico)
         modelBuilder.Entity<ServiceType>(entity =>
         {
             entity.HasKey(s => s.Id);
@@ -74,12 +78,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasIndex(s => new { s.EmployeeId, s.ServiceDate });
         });
 
-        SeedData(modelBuilder);
+        SeedInitialEmployees(modelBuilder);
     }
 
-    private static void SeedData(ModelBuilder modelBuilder)
+    private static void SeedInitialEmployees(ModelBuilder modelBuilder)
     {
-        // Conductores / Choferes de la empresa de transporte
+        // Empleados conductores iniciales de la empresa
         var emp1 = new
         {
             Id = 1,
@@ -91,6 +95,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Ruta Norte (Santiago)",
             CommissionRate = 25.0m,
             IsActive = true,
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
@@ -106,6 +112,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Ruta Cibao Central",
             CommissionRate = 22.0m,
             IsActive = true,
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
@@ -121,143 +129,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Transporte de Encomiendas",
             CommissionRate = 20.0m,
             IsActive = true,
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc),
             UpdatedAt = (DateTime?)null
         };
 
         modelBuilder.Entity<Employee>().HasData(emp1, emp2, emp3);
-
-        // Catálogo de Servicios de Transporte
-        var st1 = new
-        {
-            Id = 1,
-            Name = "Traslado Privado / Ejecutivo a Santiago",
-            Category = "Viajes Interurbanos",
-            DefaultPrice = 180.0m,
-            Description = "Servicio de transporte privado puerta a puerta hacia Santiago de los Caballeros en vehículo de confort.",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var st2 = new
-        {
-            Id = 2,
-            Name = "Transporte Expreso de Pasajeros (Ruta Santiago)",
-            Category = "Viajes Interurbanos",
-            DefaultPrice = 95.0m,
-            Description = "Servicio directo en van/minibús con paradas programadas hacia Santiago.",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var st3 = new
-        {
-            Id = 3,
-            Name = "Envío de Paquetería y Encomienda Expresa a Santiago",
-            Category = "Carga y Encomiendas",
-            DefaultPrice = 45.0m,
-            Description = "Transporte y entrega de paquetes, valijas y documentos el mismo día en Santiago.",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var st4 = new
-        {
-            Id = 4,
-            Name = "Flete y Carga Liviana Interprovincial",
-            Category = "Carga y Encomiendas",
-            DefaultPrice = 280.0m,
-            Description = "Transporte de mercancía comercial o carga ligera en vehículo utilitario cerrado.",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var st5 = new
-        {
-            Id = 5,
-            Name = "Traslado Turístico / Aeropuerto (Santiago - Cibao)",
-            Category = "Turismo & Aeropuerto",
-            DefaultPrice = 130.0m,
-            Description = "Servicio especializado de recogida y traslado desde o hacia el Aeropuerto del Cibao (STI).",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var st6 = new
-        {
-            Id = 6,
-            Name = "Alquiler de Vehículo con Conductor por Día (Santiago y Región)",
-            Category = "Servicios Especiales",
-            DefaultPrice = 350.0m,
-            Description = "Disponibilidad completa de chofer y vehículo para gestiones corporativas o familiares en Santiago.",
-            IsActive = true,
-            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        modelBuilder.Entity<ServiceType>().HasData(st1, st2, st3, st4, st5, st6);
-
-        // Servicios iniciales de transporte registrados para Tito González (CHO-001)
-        var srv1 = new
-        {
-            Id = 1,
-            ServiceCode = "SRV-2026-001",
-            EmployeeId = 1,
-            ServiceTypeId = 1, // Traslado Ejecutivo a Santiago
-            ClientName = "Ing. Manuel De Los Santos",
-            ClientAddress = "Santo Domingo -> Los Jardines Metropolitanos, Santiago",
-            ClientPhone = "+1 (809) 555-1020",
-            ServiceDate = new DateTime(2026, 9, 18, 8, 30, 0, DateTimeKind.Utc),
-            PriceCharged = 180.0m,
-            EmployeeEarnings = 45.0m, // 25% de 180
-            Status = ServiceStatus.Completado,
-            Notes = "Viaje ejecutivo de ida a Santiago sin contratiempos.",
-            CreatedAt = new DateTime(2026, 9, 18, 12, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var srv2 = new
-        {
-            Id = 2,
-            ServiceCode = "SRV-2026-002",
-            EmployeeId = 1,
-            ServiceTypeId = 6, // Conductor por día en Santiago
-            ClientName = "Grupo Farmacéutico Cibao",
-            ClientAddress = "Av. Juan Pablo Duarte #50, Santiago",
-            ClientPhone = "+1 (809) 555-2040",
-            ServiceDate = new DateTime(2026, 10, 6, 9, 0, 0, DateTimeKind.Utc),
-            PriceCharged = 350.0m,
-            EmployeeEarnings = 87.5m, // 25% de 350
-            Status = ServiceStatus.Completado,
-            Notes = "Recorrido de sucursales en Santiago durante toda la jornada.",
-            CreatedAt = new DateTime(2026, 10, 6, 18, 30, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        var srv3 = new
-        {
-            Id = 3,
-            ServiceCode = "SRV-2026-003",
-            EmployeeId = 1,
-            ServiceTypeId = 3, // Encomienda Expresa a Santiago
-            ClientName = "Distribuidora Nacional del Norte",
-            ClientAddress = "Zona Franca Industrial Víctor Espaillat Mera, Santiago",
-            ClientPhone = "+1 (809) 555-3050",
-            ServiceDate = new DateTime(2026, 10, 14, 11, 0, 0, DateTimeKind.Utc),
-            PriceCharged = 50.0m,
-            EmployeeEarnings = 12.5m, // 25% de 50
-            Status = ServiceStatus.Completado,
-            Notes = "Entrega de documentos prioritarios con firma de recepción.",
-            CreatedAt = new DateTime(2026, 10, 14, 15, 0, 0, DateTimeKind.Utc),
-            UpdatedAt = (DateTime?)null
-        };
-
-        modelBuilder.Entity<ServiceRecord>().HasData(srv1, srv2, srv3);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

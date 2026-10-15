@@ -8,11 +8,18 @@ namespace TitoRegistry.Application.Services;
 
 public interface IServiceRegistryService
 {
+    // Registro y consulta de servicios realizados
     Task<ServiceRecordDto> RegisterServiceAsync(CreateServiceRecordDto dto, CancellationToken cancellationToken = default);
     Task<List<ServiceRecordDto>> GetServicesByEmployeeAsync(int employeeId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
     Task<EmployeeSummaryDto?> GetEmployeeSummaryAsync(int employeeId, CancellationToken cancellationToken = default);
     Task<List<EmployeeDto>> GetAllEmployeesAsync(CancellationToken cancellationToken = default);
+
+    // CRUD del catálogo de tipos de servicio (con Soft Delete)
     Task<List<ServiceTypeDto>> GetActiveServiceTypesAsync(CancellationToken cancellationToken = default);
+    Task<ServiceTypeDto?> GetServiceTypeByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task<ServiceTypeDto> CreateServiceTypeAsync(CreateServiceTypeDto dto, CancellationToken cancellationToken = default);
+    Task<ServiceTypeDto> UpdateServiceTypeAsync(int id, UpdateServiceTypeDto dto, CancellationToken cancellationToken = default);
+    Task<bool> SoftDeleteServiceTypeAsync(int id, CancellationToken cancellationToken = default);
 }
 
 public class ServiceRegistryService : IServiceRegistryService
@@ -27,7 +34,7 @@ public class ServiceRegistryService : IServiceRegistryService
     public async Task<ServiceRecordDto> RegisterServiceAsync(CreateServiceRecordDto dto, CancellationToken cancellationToken = default)
     {
         var employee = await _context.Employees
-            .FirstOrDefaultAsync(e => e.Id == dto.EmployeeId, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Id == dto.EmployeeId && !e.IsDeleted, cancellationToken);
 
         if (employee == null)
             throw new KeyNotFoundException($"No se encontró ningún empleado con Id {dto.EmployeeId}.");
@@ -36,7 +43,7 @@ public class ServiceRegistryService : IServiceRegistryService
             throw new InvalidOperationException($"El empleado {employee.FullName} se encuentra inactivo y no puede registrar servicios.");
 
         var serviceType = await _context.ServiceTypes
-            .FirstOrDefaultAsync(s => s.Id == dto.ServiceTypeId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == dto.ServiceTypeId && !s.IsDeleted, cancellationToken);
 
         if (serviceType == null)
             throw new KeyNotFoundException($"No se encontró ningún tipo de servicio con Id {dto.ServiceTypeId}.");
@@ -44,7 +51,7 @@ public class ServiceRegistryService : IServiceRegistryService
         if (!serviceType.IsActive)
             throw new InvalidOperationException($"El tipo de servicio '{serviceType.Name}' está inactivo en el catálogo.");
 
-        // Generar código correlativo de servicio: SRV-2026-004
+        // Generar código correlativo de servicio: SRV-YYYY-XXX
         int nextId = await _context.ServiceRecords.CountAsync(cancellationToken) + 1;
         string serviceCode = $"SRV-{DateTime.UtcNow.Year}-{nextId:D3}";
 
@@ -91,7 +98,7 @@ public class ServiceRegistryService : IServiceRegistryService
             .AsNoTracking()
             .Include(s => s.Employee)
             .Include(s => s.ServiceType)
-            .Where(s => s.EmployeeId == employeeId);
+            .Where(s => s.EmployeeId == employeeId && !s.IsDeleted);
 
         if (from.HasValue)
             query = query.Where(s => s.ServiceDate >= from.Value);
@@ -128,14 +135,14 @@ public class ServiceRegistryService : IServiceRegistryService
     {
         var employee = await _context.Employees
             .AsNoTracking()
-            .FirstOrDefaultAsync(e => e.Id == employeeId, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Id == employeeId && !e.IsDeleted, cancellationToken);
 
         if (employee == null) return null;
 
         var completedServices = await _context.ServiceRecords
             .AsNoTracking()
             .Include(s => s.ServiceType)
-            .Where(s => s.EmployeeId == employeeId && s.Status == ServiceStatus.Completado)
+            .Where(s => s.EmployeeId == employeeId && !s.IsDeleted && s.Status == ServiceStatus.Completado)
             .OrderByDescending(s => s.ServiceDate)
             .ToListAsync(cancellationToken);
 
@@ -184,7 +191,7 @@ public class ServiceRegistryService : IServiceRegistryService
     {
         return await _context.Employees
             .AsNoTracking()
-            .Where(e => e.IsActive)
+            .Where(e => !e.IsDeleted && e.IsActive)
             .OrderBy(e => e.FullName)
             .Select(e => new EmployeeDto
             {
@@ -192,6 +199,7 @@ public class ServiceRegistryService : IServiceRegistryService
                 Code = e.Code,
                 FullName = e.FullName,
                 Email = e.Email,
+                Phone = e.Phone,
                 Role = e.Role,
                 Department = e.Department,
                 CommissionRate = e.CommissionRate,
@@ -200,11 +208,13 @@ public class ServiceRegistryService : IServiceRegistryService
             .ToListAsync(cancellationToken);
     }
 
+    // --- CRUD DEL CATÁLOGO DE SERVICIOS (CON SOFT DELETE) ---
+
     public async Task<List<ServiceTypeDto>> GetActiveServiceTypesAsync(CancellationToken cancellationToken = default)
     {
         return await _context.ServiceTypes
             .AsNoTracking()
-            .Where(s => s.IsActive)
+            .Where(s => !s.IsDeleted && s.IsActive)
             .OrderBy(s => s.Category)
             .ThenBy(s => s.Name)
             .Select(s => new ServiceTypeDto
@@ -214,8 +224,96 @@ public class ServiceRegistryService : IServiceRegistryService
                 Category = s.Category,
                 DefaultPrice = s.DefaultPrice,
                 Description = s.Description,
-                IsActive = s.IsActive
+                IsActive = s.IsActive,
+                CreatedAt = s.CreatedAt
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<ServiceTypeDto?> GetServiceTypeByIdAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var serviceType = await _context.ServiceTypes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted, cancellationToken);
+
+        if (serviceType == null) return null;
+
+        return new ServiceTypeDto
+        {
+            Id = serviceType.Id,
+            Name = serviceType.Name,
+            Category = serviceType.Category,
+            DefaultPrice = serviceType.DefaultPrice,
+            Description = serviceType.Description,
+            IsActive = serviceType.IsActive,
+            CreatedAt = serviceType.CreatedAt
+        };
+    }
+
+    public async Task<ServiceTypeDto> CreateServiceTypeAsync(CreateServiceTypeDto dto, CancellationToken cancellationToken = default)
+    {
+        var serviceType = new ServiceType(
+            dto.Name,
+            dto.Category,
+            dto.DefaultPrice,
+            dto.Description
+        );
+
+        _context.ServiceTypes.Add(serviceType);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new ServiceTypeDto
+        {
+            Id = serviceType.Id,
+            Name = serviceType.Name,
+            Category = serviceType.Category,
+            DefaultPrice = serviceType.DefaultPrice,
+            Description = serviceType.Description,
+            IsActive = serviceType.IsActive,
+            CreatedAt = serviceType.CreatedAt
+        };
+    }
+
+    public async Task<ServiceTypeDto> UpdateServiceTypeAsync(int id, UpdateServiceTypeDto dto, CancellationToken cancellationToken = default)
+    {
+        var serviceType = await _context.ServiceTypes
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted, cancellationToken);
+
+        if (serviceType == null)
+            throw new KeyNotFoundException($"No se encontró ningún tipo de servicio con Id {id}.");
+
+        serviceType.Update(dto.Name, dto.Category, dto.DefaultPrice, dto.Description);
+        
+        if (dto.IsActive)
+            serviceType.Activate();
+        else
+            serviceType.Deactivate();
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new ServiceTypeDto
+        {
+            Id = serviceType.Id,
+            Name = serviceType.Name,
+            Category = serviceType.Category,
+            DefaultPrice = serviceType.DefaultPrice,
+            Description = serviceType.Description,
+            IsActive = serviceType.IsActive,
+            CreatedAt = serviceType.CreatedAt
+        };
+    }
+
+    public async Task<bool> SoftDeleteServiceTypeAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var serviceType = await _context.ServiceTypes
+            .FirstOrDefaultAsync(s => s.Id == id && !s.IsDeleted, cancellationToken);
+
+        if (serviceType == null)
+            return false;
+
+        // Borrado lógico (Soft delete)
+        serviceType.SoftDelete();
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }
