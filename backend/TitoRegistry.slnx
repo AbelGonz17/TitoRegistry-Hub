@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TitoRegistry.Api/TitoRegistry.Api.csproj" />
+    <Project Path="src/TitoRegistry.Application/TitoRegistry.Application.csproj" />
+    <Project Path="src/TitoRegistry.Domain/TitoRegistry.Domain.csproj" />
+    <Project Path="src/TitoRegistry.Infrastructure/TitoRegistry.Infrastructure.csproj" />
+  </Folder>
+</Solution>

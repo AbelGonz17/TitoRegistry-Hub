@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+appsettings.Development.json
+*.db
+*.db-journal
+
+# Node / Vite / Vue
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+.eslintcache
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
