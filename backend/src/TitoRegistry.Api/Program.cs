@@ -1,5 +1,8 @@
 using System.Reflection;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using TitoRegistry.Application;
 using TitoRegistry.Application.Common.Interfaces;
@@ -14,6 +17,36 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 // Add Controllers
 builder.Services.AddControllers();
 
+// Configure JWT Authentication
+var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
+    ?? "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "TitoRegistryApi";
+var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "TitoRegistryClient";
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
 // Configure CORS for Frontend
 builder.Services.AddCors(options =>
 {
@@ -26,23 +59,42 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure Swagger / OpenAPI
+// Configure Swagger / OpenAPI con soporte para Tokens JWT
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "TitoRegistry-Hub API",
+        Title = "Transporte Tito API",
         Version = "v1",
-        Description = "API empresarial para el registro de servicios de empleados, cálculo de comisiones y control de acumulados.",
+        Description = "API empresarial para el registro de servicios de transporte, control de comisiones y autenticación por tokens JWT.",
         Contact = new OpenApiContact
         {
-            Name = "Equipo TitoRegistry-Hub",
+            Name = "Transporte Tito - Soporte",
             Url = new Uri("https://github.com/AbelGonz17/TitoRegistry-Hub")
         }
     });
 
-    // Cargar documentación XML generada a partir de comentarios de código
+    // Definir esquema de seguridad Bearer Token para Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Encabezado de autorización JWT usando el esquema Bearer. Ejemplo: \"Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT"
+    });
+
+    options.AddSecurityRequirement((document) => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("Bearer", document),
+            new List<string>()
+        }
+    });
+
+    // Cargar documentación XML
     var xmlFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
     if (File.Exists(xmlPath))
@@ -76,16 +128,18 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "TitoRegistry-Hub API v1");
-        c.RoutePrefix = "swagger"; // Disponible en http://localhost:PORT/swagger
-        c.DocumentTitle = "TitoRegistry API Documentation";
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Transporte Tito API v1");
+        c.RoutePrefix = "swagger";
+        c.DocumentTitle = "Transporte Tito API Documentation";
     });
 }
 
 app.UseCors("AllowFrontend");
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
 app.Run();
+

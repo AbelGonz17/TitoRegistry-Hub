@@ -60,6 +60,33 @@ namespace TitoRegistry.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Code = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    FullName = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    Email = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
+                    PasswordHash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    Phone = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Role = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Department = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CommissionRate = table.Column<decimal>(type: "numeric(5,2)", precision: 5, scale: 2, nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    IsSuperAdmin = table.Column<bool>(type: "boolean", nullable: false),
+                    Avatar = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ServiceRecords",
                 columns: table => new
                 {
@@ -108,6 +135,11 @@ namespace TitoRegistry.Infrastructure.Migrations
                     { 3, "CHO-003", 20.0m, new DateTime(2026, 2, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "Transporte de Encomiendas", "carlos.mendoza@titotransporte.com", "Carlos Mendoza", true, false, "+1 (809) 555-0103", "Operador de Carga y Fletes", null }
                 });
 
+            migrationBuilder.InsertData(
+                table: "Users",
+                columns: new[] { "Id", "Avatar", "Code", "CommissionRate", "CreatedAt", "DeletedAt", "Department", "Email", "FullName", "IsActive", "IsDeleted", "IsSuperAdmin", "PasswordHash", "Phone", "Role", "UpdatedAt" },
+                values: new object[] { 1, "👑", "ADM-001", 0m, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), null, "Dirección General & Propietario", "admin@titotransporte.com", "Tito González", true, false, true, "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a", "+1 (809) 555-0100", "SuperAdmin", null });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Employees_Code",
                 table: "Employees",
@@ -129,6 +161,18 @@ namespace TitoRegistry.Infrastructure.Migrations
                 name: "IX_ServiceRecords_ServiceTypeId",
                 table: "ServiceRecords",
                 column: "ServiceTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Code",
+                table: "Users",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true);
         }
 
         /// <inheritdoc />
@@ -136,6 +180,9 @@ namespace TitoRegistry.Infrastructure.Migrations
         {
             migrationBuilder.DropTable(
                 name: "ServiceRecords");
+
+            migrationBuilder.DropTable(
+                name: "Users");
 
             migrationBuilder.DropTable(
                 name: "Employees");

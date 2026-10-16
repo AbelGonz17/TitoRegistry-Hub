@@ -9,6 +9,7 @@ namespace TitoRegistry.Application.Common.Interfaces;
 /// </summary>
 public interface IApplicationDbContext
 {
+    DbSet<User> Users { get; }
     DbSet<Employee> Employees { get; }
     DbSet<ServiceType> ServiceTypes { get; }
     DbSet<ServiceRecord> ServiceRecords { get; }

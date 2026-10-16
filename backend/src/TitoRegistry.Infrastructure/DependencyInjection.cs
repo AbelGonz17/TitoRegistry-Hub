@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Infrastructure.Persistence;
+using TitoRegistry.Infrastructure.Services;
 
 namespace TitoRegistry.Infrastructure;
 
@@ -19,6 +20,10 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext>(provider => 
             provider.GetRequiredService<ApplicationDbContext>());
+
+        // Servicios de seguridad y tokens
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 
         return services;
     }

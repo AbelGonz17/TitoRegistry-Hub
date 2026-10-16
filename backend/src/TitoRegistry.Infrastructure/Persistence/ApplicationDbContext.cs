@@ -10,6 +10,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     {
     }
 
+    public DbSet<User> Users => Set<User>();
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<ServiceType> ServiceTypes => Set<ServiceType>();
     public DbSet<ServiceRecord> ServiceRecords => Set<ServiceRecord>();
@@ -19,9 +20,29 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         base.OnModelCreating(modelBuilder);
 
         // Filtros globales para Soft Delete
+        modelBuilder.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
         modelBuilder.Entity<Employee>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<ServiceType>().HasQueryFilter(s => !s.IsDeleted);
         modelBuilder.Entity<ServiceRecord>().HasQueryFilter(s => !s.IsDeleted);
+
+        // Configuración de Usuarios y Autenticación
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.Code).IsRequired().HasMaxLength(50);
+            entity.HasIndex(u => u.Code).IsUnique();
+
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(150);
+            entity.HasIndex(u => u.Email).IsUnique();
+
+            entity.Property(u => u.FullName).IsRequired().HasMaxLength(150);
+            entity.Property(u => u.PasswordHash).IsRequired().HasMaxLength(255);
+            entity.Property(u => u.Phone).HasMaxLength(50);
+            entity.Property(u => u.Role).IsRequired().HasMaxLength(50);
+            entity.Property(u => u.Department).HasMaxLength(100);
+            entity.Property(u => u.CommissionRate).HasPrecision(5, 2);
+            entity.Property(u => u.Avatar).HasMaxLength(100);
+        });
 
         // Configuración de Empleado (Conductores / Choferes)
         modelBuilder.Entity<Employee>(entity =>
@@ -78,11 +99,34 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasIndex(s => new { s.EmployeeId, s.ServiceDate });
         });
 
-        SeedInitialEmployees(modelBuilder);
+        SeedInitialData(modelBuilder);
     }
 
-    private static void SeedInitialEmployees(ModelBuilder modelBuilder)
+    private static void SeedInitialData(ModelBuilder modelBuilder)
     {
+        // Usuario SuperAdmin Inicial
+        var superAdmin = new
+        {
+            Id = 1,
+            Code = "ADM-001",
+            FullName = "Tito González",
+            Email = "admin@titotransporte.com",
+            PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a", // Password: Admin123!
+            Phone = "+1 (809) 555-0100",
+            Role = "SuperAdmin",
+            Department = "Dirección General & Propietario",
+            CommissionRate = 0m,
+            IsActive = true,
+            IsSuperAdmin = true,
+            Avatar = "👑",
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<User>().HasData(superAdmin);
+
         // Empleados conductores iniciales de la empresa
         var emp1 = new
         {
