@@ -1,11 +1,13 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import api from './services/api';
+import authService from './services/auth';
 import Navbar from './components/Navbar.vue';
 import BottomNav from './components/BottomNav.vue';
 import Toast from './components/Toast.vue';
 import RegisterServiceModal from './components/RegisterServiceModal.vue';
 import ServiceTypeModal from './components/ServiceTypeModal.vue';
+import AuthModal from './components/AuthModal.vue';
 import DashboardView from './views/DashboardView.vue';
 import CatalogView from './views/CatalogView.vue';
 
@@ -21,7 +23,12 @@ const employeeSummary = ref({});
 const services = ref([]);
 const serviceTypes = ref([]);
 
-// Modales
+// Autenticación y Sesión de Usuario
+const currentUser = ref(authService.getCurrentUser());
+const showAuthModal = ref(false);
+const authModalMode = ref('login'); // 'login' | 'register'
+
+// Modales del sistema
 const showRegisterModal = ref(false);
 const showCatalogModal = ref(false);
 const editingServiceType = ref(null);
@@ -44,8 +51,9 @@ const showToast = (message, type = 'success') => {
 const currentEmployee = computed(() => {
   return employees.value.find(e => e.id === currentEmployeeId.value) || {
     id: currentEmployeeId.value,
-    fullName: 'Chofer',
-    commissionRate: 25
+    fullName: currentUser.value?.fullName || 'Chofer Activo',
+    role: currentUser.value?.role || 'Conductor',
+    commissionRate: currentUser.value?.commissionRate || 25
   };
 });
 
@@ -61,9 +69,50 @@ const checkHealth = async () => {
 
 const loadEmployees = async () => {
   try {
-    const list = await api.getEmployees();
-    employees.value = list || [];
-    if (employees.value.length > 0 && !currentEmployeeId.value) {
+    const backendList = await api.getEmployees().catch(() => []);
+    const localUsers = authService.getUsers() || [];
+
+    // Combinar choferes del backend con usuarios registrados localmente
+    const mergedMap = new Map();
+    
+    // Primero los del backend
+    (backendList || []).forEach(emp => {
+      mergedMap.set(emp.id, {
+        id: emp.id,
+        code: emp.code,
+        fullName: emp.fullName,
+        email: emp.email,
+        phone: emp.phone,
+        role: emp.role,
+        department: emp.department,
+        commissionRate: emp.commissionRate,
+        isActive: emp.isActive
+      });
+    });
+
+    // Luego agregar usuarios registrados si no existen por ID
+    localUsers.forEach(u => {
+      if (!mergedMap.has(u.id)) {
+        mergedMap.set(u.id, {
+          id: u.id,
+          code: u.code,
+          fullName: u.fullName,
+          email: u.email,
+          phone: u.phone,
+          role: u.role,
+          department: u.department,
+          commissionRate: u.commissionRate,
+          isActive: true
+        });
+      }
+    });
+
+    employees.value = Array.from(mergedMap.values());
+
+    // Si hay un usuario logueado, sincronizar el chofer activo con su cuenta
+    if (currentUser.value && currentUser.value.id) {
+      currentEmployeeId.value = currentUser.value.id;
+    } else if (employees.value.length > 0 && !currentEmployeeId.value) {
       currentEmployeeId.value = employees.value[0].id;
     }
   } catch (err) {
@@ -82,6 +131,24 @@ const loadEmployeeData = async () => {
 
     if (summary) {
       employeeSummary.value = summary;
+    } else {
+      // Estado de reserva si es un chofer recién registrado
+      employeeSummary.value = {
+        id: currentEmployee.value.id,
+        code: currentEmployee.value.code || 'CHO-NUEVO',
+        fullName: currentEmployee.value.fullName,
+        email: currentEmployee.value.email || '',
+        phone: currentEmployee.value.phone || '',
+        role: currentEmployee.value.role || 'Conductor',
+        department: currentEmployee.value.department || 'Operaciones',
+        commissionRate: currentEmployee.value.commissionRate || 25,
+        isActive: true,
+        totalServicesCompleted: 0,
+        totalEarningsAccumulated: 0,
+        totalBilled: 0,
+        averageEarningsPerService: 0,
+        recentServices: []
+      };
     }
     services.value = srvList || [];
   } catch (err) {
@@ -111,9 +178,73 @@ const refreshAll = async () => {
 
 onMounted(async () => {
   await refreshAll();
-  // Auto-refresco del estado cada 15 segundos
+  // Auto-refresco del estado de conexión cada 15 segundos
   setInterval(checkHealth, 15000);
+
+  // Si no hay sesión iniciada, abrir ventana de bienvenida / login para invitar al registro
+  if (!currentUser.value) {
+    showAuthModal.value = true;
+  }
 });
+
+// Manejo de Autenticación
+const openAuthModal = (mode = 'login') => {
+  authModalMode.value = mode === 'profile' ? 'login' : mode;
+  showAuthModal.value = true;
+};
+
+const onLoginSuccess = async (session) => {
+  currentUser.value = session;
+  showAuthModal.value = false;
+  currentEmployeeId.value = session.id;
+
+  // Asegurar que esté en la lista de empleados
+  const exists = employees.value.some(e => e.id === session.id);
+  if (!exists) {
+    employees.value.unshift({
+      id: session.id,
+      code: session.code,
+      fullName: session.fullName,
+      email: session.email,
+      phone: session.phone,
+      role: session.role,
+      department: session.department,
+      commissionRate: session.commissionRate,
+      isActive: true
+    });
+  }
+
+  await loadEmployeeData();
+  showToast(`¡Bienvenido de vuelta, ${session.fullName}!`, 'success');
+};
+
+const onRegisterSuccess = async (newSession) => {
+  currentUser.value = newSession;
+  showAuthModal.value = false;
+
+  // Registrar en la lista reactiva de empleados
+  employees.value.unshift({
+    id: newSession.id,
+    code: newSession.code,
+    fullName: newSession.fullName,
+    email: newSession.email,
+    phone: newSession.phone,
+    role: newSession.role,
+    department: newSession.department,
+    commissionRate: newSession.commissionRate,
+    isActive: true
+  });
+
+  currentEmployeeId.value = newSession.id;
+  await loadEmployeeData();
+  showToast(`¡Registro exitoso! Bienvenido al equipo, ${newSession.fullName}.`, 'success');
+};
+
+const onLogout = () => {
+  authService.logout();
+  currentUser.value = null;
+  showToast('Has cerrado sesión en Transporte Tito.', 'info');
+};
 
 // Manejo de Chofer
 const onEmployeeChange = async (newId) => {
@@ -186,9 +317,12 @@ const onDeleteServiceType = async (id) => {
       :currentEmployeeId="currentEmployeeId"
       :backendOnline="backendOnline"
       :currentTab="currentTab"
+      :currentUser="currentUser"
       @change-employee="onEmployeeChange"
       @change-tab="tab => currentTab = tab"
       @open-new-service="showRegisterModal = true"
+      @open-auth="openAuthModal"
+      @logout="onLogout"
     />
 
     <!-- Contenido Principal -->
@@ -218,9 +352,19 @@ const onDeleteServiceType = async (id) => {
     <!-- Barra de Navegación Táctil Inferior (Móvil) -->
     <BottomNav 
       :currentTab="currentTab"
+      :currentUser="currentUser"
       @change-tab="tab => currentTab = tab"
       @open-new-service="showRegisterModal = true"
+      @open-auth="openAuthModal"
       @refresh="refreshAll"
+    />
+
+    <!-- Modal de Inicio de Sesión -->
+    <AuthModal 
+      :show="showAuthModal"
+      :canClose="true"
+      @close="showAuthModal = false"
+      @login-success="onLoginSuccess"
     />
 
     <!-- Modal Registrar Viaje / Servicio -->

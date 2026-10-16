@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue';
+
 defineProps({
   employees: {
     type: Array,
@@ -6,10 +8,16 @@ defineProps({
   },
   currentEmployeeId: [Number, String],
   backendOnline: Boolean,
-  currentTab: String
+  currentTab: String,
+  currentUser: {
+    type: Object,
+    default: null
+  }
 });
 
-defineEmits(['change-employee', 'change-tab', 'open-new-service']);
+defineEmits(['change-employee', 'change-tab', 'open-new-service', 'open-auth', 'logout']);
+
+const showUserMenu = ref(false);
 </script>
 
 <template>
@@ -44,15 +52,15 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
 
       <!-- Selector de Chofer y Acciones -->
       <div class="navbar-actions">
-        <!-- Indicador de conexión -->
-        <div class="connection-status" :title="backendOnline ? 'Servidor Conectado' : 'Sin conexión al servidor'">
+        <!-- Indicador de conexión con el Servidor -->
+        <div class="connection-status" :title="backendOnline ? 'Servidor .NET Conectado' : 'Sin conexión al servidor'">
           <span :class="['status-dot', { online: backendOnline }]"></span>
-          <span class="status-label desktop-only">{{ backendOnline ? 'API Conectada' : 'Desconectada' }}</span>
+          <span class="status-label desktop-only">{{ backendOnline ? 'API Conectada' : 'Offline' }}</span>
         </div>
 
         <!-- Selector de Chofer Activo -->
-        <div class="driver-picker">
-          <label class="picker-label desktop-only">Chofer Activo:</label>
+        <div class="driver-picker desktop-only">
+          <label class="picker-label">Chofer Activo:</label>
           <select 
             class="picker-select" 
             :value="currentEmployeeId" 
@@ -64,11 +72,45 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
           </select>
         </div>
 
-        <!-- Botón de acción rápida (Desktop) -->
+        <!-- Botón de acción rápida: Registrar Viaje -->
         <button class="btn btn-primary desktop-only" @click="$emit('open-new-service')">
           <span>+</span>
           <span>Registrar Viaje</span>
         </button>
+
+        <!-- Bloque de Autenticación / Perfil de Usuario -->
+        <div v-if="currentUser" class="user-profile-wrapper">
+          <div class="user-chip" @click="showUserMenu = !showUserMenu">
+            <span class="user-avatar">{{ currentUser.avatar || '👤' }}</span>
+            <div class="user-info desktop-only">
+              <span class="user-name">{{ currentUser.fullName }}</span>
+              <span class="user-role">{{ currentUser.role || 'Conductor' }}</span>
+            </div>
+            <span class="dropdown-chevron">▾</span>
+          </div>
+
+          <!-- Menú desplegable del usuario -->
+          <div v-if="showUserMenu" class="user-dropdown-menu" @click="showUserMenu = false">
+            <div class="dropdown-header">
+              <span class="dropdown-user-name">{{ currentUser.fullName }}</span>
+              <span class="dropdown-user-email">{{ currentUser.email }}</span>
+              <span class="dropdown-badge">{{ currentUser.isSuperAdmin ? 'SUPER ADMIN 👑' : (currentUser.code || 'ACTIVO') }}</span>
+            </div>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item logout-item" @click="$emit('logout')">
+              <span>🚪</span>
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Botón cuando no ha iniciado sesión -->
+        <div v-else class="auth-cta-group">
+          <button class="btn btn-primary" @click="$emit('open-auth', 'login')">
+            <span class="auth-icon">🔑</span>
+            <span>Ingresar</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -101,7 +143,7 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
 }
 
 .brand-logo {
-  height: 48px;
+  height: 46px;
   width: auto;
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
@@ -170,8 +212,9 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.3);
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--brand-border);
   border-radius: var(--radius-full);
 }
 
@@ -222,6 +265,197 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
   border-color: var(--brand-green-light);
 }
 
+/* Perfil de Usuario */
+.user-profile-wrapper {
+  position: relative;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 6px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid var(--brand-border-strong);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.user-chip:hover {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: var(--brand-green-light);
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+}
+
+.user-avatar {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.user-role {
+  font-size: 0.7rem;
+  color: var(--brand-green-light);
+  font-weight: 500;
+}
+
+.dropdown-chevron {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Menú flotante del usuario */
+.user-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 230px;
+  background: rgba(18, 26, 21, 0.98);
+  border: 1px solid var(--brand-border-strong);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  backdrop-filter: blur(16px);
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: dropFade 0.2s ease;
+}
+
+@keyframes dropFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 8px;
+}
+
+.dropdown-user-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #ffffff;
+}
+
+.dropdown-user-email {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.dropdown-badge {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 4px;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--brand-green-light);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--brand-border);
+  margin: 4px 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: #ffffff;
+}
+
+.logout-item {
+  color: #fca5a5;
+}
+
+.logout-item:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Botones de Auth para cuando no hay sesión */
+.auth-cta-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-outline-auth {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid var(--brand-border-strong);
+  color: var(--brand-green-light);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-outline-auth:hover {
+  background: var(--brand-green);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.4);
+}
+
+.btn-register-auth {
+  padding: 7px 14px;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-hover));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-register-auth:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.45);
+}
+
 @media (max-width: 768px) {
   .desktop-only {
     display: none !important;
@@ -234,11 +468,6 @@ defineEmits(['change-employee', 'change-tab', 'open-new-service']);
   }
   .brand-slogan {
     display: none;
-  }
-  .picker-select {
-    max-width: 170px;
-    font-size: 0.8rem;
-    padding: 6px 8px;
   }
 }
 </style>

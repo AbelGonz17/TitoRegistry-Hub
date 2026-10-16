@@ -1,9 +1,13 @@
 <script setup>
 defineProps({
-  currentTab: String
+  currentTab: String,
+  currentUser: {
+    type: Object,
+    default: null
+  }
 });
 
-defineEmits(['change-tab', 'open-new-service', 'refresh']);
+defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
 </script>
 
 <template>
@@ -34,13 +38,14 @@ defineEmits(['change-tab', 'open-new-service', 'refresh']);
         <span class="label">Catálogo</span>
       </button>
 
+      <!-- Perfil / Login en móvil -->
       <button 
         class="bottom-nav-btn"
-        @click="$emit('refresh')"
-        title="Actualizar datos"
+        @click="$emit('open-auth', currentUser ? 'profile' : 'login')"
+        :title="currentUser ? currentUser.fullName : 'Iniciar Sesión / Registrarse'"
       >
-        <span class="icon">🔄</span>
-        <span class="label">Refrescar</span>
+        <span class="icon">{{ currentUser ? (currentUser.avatar || '👤') : '🔑' }}</span>
+        <span class="label">{{ currentUser ? (currentUser.fullName.split(' ')[0]) : 'Ingresar' }}</span>
       </button>
     </div>
   </div>
