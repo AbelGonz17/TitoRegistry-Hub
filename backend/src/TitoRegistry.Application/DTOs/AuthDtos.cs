@@ -32,6 +32,9 @@ public class UserDto
     public string Role { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public decimal CommissionRate { get; set; }
+    public decimal DefaultPhoneIncentive { get; set; } = 1000.0m;
+    public decimal DefaultIsr { get; set; } = 873.0m;
+    public decimal DefaultTss { get; set; } = 1088.69m;
     public bool IsActive { get; set; }
     public bool IsSuperAdmin { get; set; }
     public string Avatar { get; set; } = string.Empty;
@@ -54,12 +57,16 @@ public class CreateUserDto
 
     public string Phone { get; set; } = string.Empty;
 
-    public string Role { get; set; } = "Chofer"; // SuperAdmin, Admin, Chofer
+    public string Role { get; set; } = "Chofer"; // SuperAdmin, Administrador, Chofer
 
     public string Department { get; set; } = "Operaciones";
 
     [Range(0, 100, ErrorMessage = "La comisión debe estar entre 0% y 100%.")]
     public decimal CommissionRate { get; set; } = 25.0m;
+
+    public decimal DefaultPhoneIncentive { get; set; } = 1000.0m;
+    public decimal DefaultIsr { get; set; } = 873.0m;
+    public decimal DefaultTss { get; set; } = 1088.69m;
 
     public string Avatar { get; set; } = string.Empty;
 }
@@ -79,6 +86,10 @@ public class UpdateUserDto
 
     [Range(0, 100, ErrorMessage = "La comisión debe estar entre 0% y 100%.")]
     public decimal CommissionRate { get; set; } = 25.0m;
+
+    public decimal DefaultPhoneIncentive { get; set; } = 1000.0m;
+    public decimal DefaultIsr { get; set; } = 873.0m;
+    public decimal DefaultTss { get; set; } = 1088.69m;
 
     public bool IsActive { get; set; } = true;
 

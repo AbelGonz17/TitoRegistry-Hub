@@ -3,8 +3,8 @@ using TitoRegistry.Domain.Common;
 namespace TitoRegistry.Domain.Entities;
 
 /// <summary>
-/// Entidad de dominio que representa a un usuario del sistema (SuperAdmin, Admin o Chofer).
-/// Cuenta con credenciales de autenticación segura y soporte para Soft Delete.
+/// Entidad de dominio que representa a un usuario del sistema (SuperAdmin, Administrador o Chofer).
+/// Cuenta con credenciales de autenticación segura, datos operativos para liquidación y soporte para Soft Delete.
 /// </summary>
 public class User : BaseEntity
 {
@@ -13,12 +13,24 @@ public class User : BaseEntity
     public string Email { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
     public string Phone { get; private set; } = string.Empty;
-    public string Role { get; private set; } = "Chofer"; // SuperAdmin, Admin, Chofer
+    public string Role { get; private set; } = "Chofer"; // SuperAdmin, Administrador, Chofer
     public string Department { get; private set; } = "Operaciones";
     public decimal CommissionRate { get; private set; } = 25.0m;
     public bool IsActive { get; private set; } = true;
     public bool IsSuperAdmin { get; private set; } = false;
     public string Avatar { get; private set; } = string.Empty;
+
+    // Valores predeterminados para la liquidación mensual de choferes (planilla)
+    public decimal DefaultPhoneIncentive { get; private set; } = 1000.0m;
+    public decimal DefaultIsr { get; private set; } = 873.0m;
+    public decimal DefaultTss { get; private set; } = 1088.69m;
+
+    // Relaciones de navegación
+    private readonly List<ServiceRecord> _serviceRecords = new();
+    public virtual IReadOnlyCollection<ServiceRecord> ServiceRecords => _serviceRecords.AsReadOnly();
+
+    private readonly List<DriverSettlement> _settlements = new();
+    public virtual IReadOnlyCollection<DriverSettlement> Settlements => _settlements.AsReadOnly();
 
     // Constructor privado para EF Core
     private User() { }
@@ -33,7 +45,10 @@ public class User : BaseEntity
         string department,
         decimal commissionRate,
         bool isSuperAdmin = false,
-        string avatar = "")
+        string avatar = "",
+        decimal defaultPhoneIncentive = 1000.0m,
+        decimal defaultIsr = 873.0m,
+        decimal defaultTss = 1088.69m)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("El nombre del usuario es obligatorio.", nameof(fullName));
@@ -54,6 +69,9 @@ public class User : BaseEntity
         CommissionRate = commissionRate < 0 ? 0 : commissionRate;
         IsSuperAdmin = isSuperAdmin || Role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase);
         Avatar = avatar?.Trim() ?? string.Empty;
+        DefaultPhoneIncentive = defaultPhoneIncentive;
+        DefaultIsr = defaultIsr;
+        DefaultTss = defaultTss;
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
     }
@@ -80,7 +98,10 @@ public class User : BaseEntity
         string department,
         decimal commissionRate,
         bool isActive,
-        string avatar = "")
+        string avatar = "",
+        decimal? defaultPhoneIncentive = null,
+        decimal? defaultIsr = null,
+        decimal? defaultTss = null)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("El nombre del usuario es obligatorio.", nameof(fullName));
@@ -95,6 +116,13 @@ public class User : BaseEntity
         {
             Avatar = avatar.Trim();
         }
+        if (defaultPhoneIncentive.HasValue)
+            DefaultPhoneIncentive = defaultPhoneIncentive.Value;
+        if (defaultIsr.HasValue)
+            DefaultIsr = defaultIsr.Value;
+        if (defaultTss.HasValue)
+            DefaultTss = defaultTss.Value;
+
         UpdatedAt = DateTime.UtcNow;
     }
 

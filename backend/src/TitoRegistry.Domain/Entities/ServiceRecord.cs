@@ -4,26 +4,31 @@ using TitoRegistry.Domain.Enums;
 namespace TitoRegistry.Domain.Entities;
 
 /// <summary>
-/// Entidad de dominio que representa un servicio ejecutado y registrado por un empleado.
-/// Contiene la información del cliente, monto cobrado y el acumulado inmutable del empleado.
+/// Entidad de dominio que representa un servicio o viaje de transporte registrado.
+/// Refleja fielmente las columnas del reporte de operaciones de Transporte Tito:
+/// Referencia/Cliente, Tipo de Servicio, Descripción del Servicio, Fecha y Precio.
 /// </summary>
 public class ServiceRecord : BaseEntity
 {
     public string ServiceCode { get; private set; } = string.Empty;
 
-    public int EmployeeId { get; private set; }
-    public Employee? Employee { get; private set; }
+    public int DriverId { get; private set; }
+    public virtual User? Driver { get; private set; }
 
     public int ServiceTypeId { get; private set; }
-    public ServiceType? ServiceType { get; private set; }
+    public virtual ServiceType? ServiceType { get; private set; }
 
-    public string ClientName { get; private set; } = string.Empty;
-    public string ClientAddress { get; private set; } = string.Empty;
-    public string ClientPhone { get; private set; } = string.Empty;
+    // Columna "Referencia / CLIENTE" (ej: "Gloris", "Señor Inacio", "Doña Clara", "Referencia")
+    public string ClientReference { get; private set; } = string.Empty;
 
+    // Columna "DESCRIBA EL SERVICIO REALIZADO" (ej: "Recoger el señor Carlo", "Viaje a punta cana")
+    public string Description { get; private set; } = string.Empty;
+
+    // Columna "FECHA DEL SERVICIO"
     public DateTime ServiceDate { get; private set; }
+
+    // Columna "PRECIO DEL SERVICIO"
     public decimal PriceCharged { get; private set; }
-    public decimal EmployeeEarnings { get; private set; } // Monto congelado que acumula el empleado
 
     public ServiceStatus Status { get; private set; } = ServiceStatus.Completado;
     public string Notes { get; private set; } = string.Empty;
@@ -33,122 +38,116 @@ public class ServiceRecord : BaseEntity
 
     public ServiceRecord(
         string serviceCode,
-        int employeeId,
+        int driverId,
         int serviceTypeId,
-        string clientName,
-        string clientAddress,
-        string clientPhone,
+        string clientReference,
+        string description,
         DateTime serviceDate,
         decimal priceCharged,
-        decimal employeeEarnings,
         ServiceStatus status = ServiceStatus.Completado,
         string notes = "")
     {
         if (string.IsNullOrWhiteSpace(serviceCode))
             throw new ArgumentException("El código de servicio es obligatorio.", nameof(serviceCode));
 
-        if (employeeId <= 0)
-            throw new ArgumentException("El empleado asignado no es válido.", nameof(employeeId));
+        if (driverId <= 0)
+            throw new ArgumentException("El chofer asignado no es válido.", nameof(driverId));
 
         if (serviceTypeId <= 0)
             throw new ArgumentException("El tipo de servicio no es válido.", nameof(serviceTypeId));
 
-        if (string.IsNullOrWhiteSpace(clientName))
-            throw new ArgumentException("El nombre del cliente no puede estar vacío.", nameof(clientName));
+        if (string.IsNullOrWhiteSpace(clientReference))
+            throw new ArgumentException("La referencia o cliente es obligatoria.", nameof(clientReference));
+
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("La descripción del servicio es obligatoria.", nameof(description));
 
         if (priceCharged < 0)
             throw new ArgumentOutOfRangeException(nameof(priceCharged), "El precio cobrado no puede ser negativo.");
 
-        if (employeeEarnings < 0)
-            throw new ArgumentOutOfRangeException(nameof(employeeEarnings), "La ganancia del empleado no puede ser negativa.");
-
         ServiceCode = serviceCode.Trim().ToUpperInvariant();
-        EmployeeId = employeeId;
+        DriverId = driverId;
         ServiceTypeId = serviceTypeId;
-        ClientName = clientName.Trim();
-        ClientAddress = clientAddress?.Trim() ?? string.Empty;
-        ClientPhone = clientPhone?.Trim() ?? string.Empty;
+        ClientReference = clientReference.Trim();
+        Description = description.Trim();
         ServiceDate = serviceDate == default ? DateTime.UtcNow : serviceDate;
         PriceCharged = priceCharged;
-        EmployeeEarnings = employeeEarnings;
         Status = status;
         Notes = notes?.Trim() ?? string.Empty;
         CreatedAt = DateTime.UtcNow;
     }
 
     /// <summary>
-    /// Método de fábrica (Factory method) para crear un nuevo registro de servicio
-    /// calculando y congelando la ganancia del empleado a partir de su tasa actual.
+    /// Factory method para registrar un nuevo servicio validando estado del chofer y tipo de servicio.
     /// </summary>
     public static ServiceRecord Create(
         string serviceCode,
-        Employee employee,
+        User driver,
         ServiceType serviceType,
-        string clientName,
-        string clientAddress,
-        string clientPhone,
+        string clientReference,
+        string description,
         DateTime serviceDate,
         decimal priceCharged,
         string notes = "")
     {
-        ArgumentNullException.ThrowIfNull(employee);
+        ArgumentNullException.ThrowIfNull(driver);
         ArgumentNullException.ThrowIfNull(serviceType);
 
-        if (!employee.IsActive)
-            throw new InvalidOperationException($"El empleado {employee.FullName} se encuentra inactivo y no puede registrar servicios.");
+        if (!driver.IsActive)
+            throw new InvalidOperationException($"El chofer {driver.FullName} se encuentra inactivo.");
 
         if (!serviceType.IsActive)
-            throw new InvalidOperationException($"El servicio '{serviceType.Name}' está inactivo en el catálogo.");
-
-        // Cálculo de ganancia encapsulado en el dominio del empleado
-        decimal calculatedEarnings = employee.CalculateEarnings(priceCharged);
+            throw new InvalidOperationException($"El tipo de servicio '{serviceType.Name}' está inactivo en el catálogo.");
 
         return new ServiceRecord(
             serviceCode,
-            employee.Id,
+            driver.Id,
             serviceType.Id,
-            clientName,
-            clientAddress,
-            clientPhone,
+            clientReference,
+            description,
             serviceDate,
             priceCharged,
-            calculatedEarnings,
             ServiceStatus.Completado,
             notes
         );
     }
 
     /// <summary>
-    /// Marca el servicio como completado para que sume formalmente al acumulado del empleado.
+    /// Actualiza los datos operativos del servicio.
     /// </summary>
-    public void CompleteService()
+    public void Update(
+        int serviceTypeId,
+        string clientReference,
+        string description,
+        DateTime serviceDate,
+        decimal priceCharged,
+        string notes = "")
     {
-        if (Status == ServiceStatus.Cancelado)
-            throw new InvalidOperationException("No se puede completar un servicio que ya fue cancelado.");
+        if (serviceTypeId <= 0)
+            throw new ArgumentException("El tipo de servicio no es válido.", nameof(serviceTypeId));
 
-        Status = ServiceStatus.Completado;
+        if (string.IsNullOrWhiteSpace(clientReference))
+            throw new ArgumentException("La referencia o cliente es obligatoria.", nameof(clientReference));
+
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("La descripción del servicio es obligatoria.", nameof(description));
+
+        if (priceCharged < 0)
+            throw new ArgumentOutOfRangeException(nameof(priceCharged), "El precio no puede ser negativo.");
+
+        ServiceTypeId = serviceTypeId;
+        ClientReference = clientReference.Trim();
+        Description = description.Trim();
+        ServiceDate = serviceDate;
+        PriceCharged = priceCharged;
+        Notes = notes?.Trim() ?? string.Empty;
         UpdatedAt = DateTime.UtcNow;
     }
 
-    /// <summary>
-    /// Cancela el servicio y deja en cero el acumulado del empleado para este registro.
-    /// </summary>
-    public void CancelService(string cancellationReason)
+    public void Cancel(string reason)
     {
         Status = ServiceStatus.Cancelado;
-        EmployeeEarnings = 0m;
-        Notes = string.IsNullOrWhiteSpace(Notes) 
-            ? $"Cancelado: {cancellationReason}" 
-            : $"{Notes} | Cancelado: {cancellationReason}";
-        UpdatedAt = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Actualiza notas o detalles operativos adicionales del servicio.
-    /// </summary>
-    public void UpdateNotes(string newNotes)
-    {
-        Notes = newNotes?.Trim() ?? string.Empty;
+        Notes = string.IsNullOrWhiteSpace(Notes) ? $"Cancelado: {reason}" : $"{Notes} | Cancelado: {reason}";
         UpdatedAt = DateTime.UtcNow;
     }
 }

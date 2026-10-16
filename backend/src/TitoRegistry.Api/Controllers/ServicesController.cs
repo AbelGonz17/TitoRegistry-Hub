@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Application.Services;
@@ -5,11 +7,12 @@ using TitoRegistry.Application.Services;
 namespace TitoRegistry.Api.Controllers;
 
 /// <summary>
-/// Controlador para el registro y consulta de servicios realizados por los empleados.
+/// Controlador para el registro, consulta y administración de servicios de transporte realizados por los choferes.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
+[Authorize]
 public class ServicesController : ControllerBase
 {
     private readonly IServiceRegistryService _serviceRegistry;
@@ -22,20 +25,49 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
-    /// Registra un nuevo servicio realizado por un empleado.
+    /// Consulta los servicios registrados con filtros opcionales (por chofer, rango de fechas, mes o año).
     /// </summary>
-    /// <remarks>
-    /// Al registrar el servicio:
-    /// - Se valida que el empleado y el tipo de servicio existan y se encuentren activos.
-    /// - Se calcula automáticamente la ganancia correspondiente al empleado según su porcentaje de comisión asignado.
-    /// - Se congela el valor del acumulado en el registro histórico.
-    /// </remarks>
-    /// <param name="dto">Datos del servicio a registrar.</param>
-    /// <param name="cancellationToken">Token de cancelación.</param>
-    /// <returns>El servicio registrado con su código único y ganancia acumulada calculada.</returns>
-    /// <response code="201">Servicio registrado exitosamente.</response>
-    /// <response code="400">Datos inválidos o empleado/servicio inactivo.</response>
-    /// <response code="404">Empleado o tipo de servicio no encontrado.</response>
+    [HttpGet]
+    [ProducesResponseType(typeof(List<ServiceRecordDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetServices(
+        [FromQuery] int? driverId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] int? month,
+        [FromQuery] int? year,
+        CancellationToken cancellationToken)
+    {
+        // Si el usuario autenticado es Chofer y no es admin, solo puede ver sus propios servicios
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        {
+            driverId = currentDriverId;
+        }
+
+        var services = await _serviceRegistry.GetServicesAsync(driverId, from, to, month, year, cancellationToken);
+        return Ok(services);
+    }
+
+    /// <summary>
+    /// Obtiene un servicio específico por su identificador único.
+    /// </summary>
+    [HttpGet("{id:int}")]
+    [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetServiceById([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        var service = await _serviceRegistry.GetServiceByIdAsync(id, cancellationToken);
+        if (service == null)
+            return NotFound(new { message = $"No se encontró ningún servicio con Id {id}." });
+
+        return Ok(service);
+    }
+
+    /// <summary>
+    /// Registra un nuevo servicio realizado.
+    /// </summary>
     [HttpPost]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -45,10 +77,18 @@ public class ServicesController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        // Si el chofer registra su servicio y el dto.DriverId no fue provisto o es 0, usar el suyo
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        {
+            dto.DriverId = currentDriverId;
+        }
+
         try
         {
             var created = await _serviceRegistry.RegisterServiceAsync(dto, cancellationToken);
-            return CreatedAtAction(nameof(GetServicesByEmployee), new { employeeId = created.EmployeeId }, created);
+            return CreatedAtAction(nameof(GetServiceById), new { id = created.Id }, created);
         }
         catch (KeyNotFoundException ex)
         {
@@ -66,23 +106,111 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
-    /// Obtiene el historial de servicios registrados por un empleado específico.
+    /// Actualiza un servicio registrado previamente.
     /// </summary>
-    /// <param name="employeeId">Identificador único del empleado.</param>
-    /// <param name="from">Fecha inicial opcional para filtrar el periodo.</param>
-    /// <param name="to">Fecha final opcional para filtrar el periodo.</param>
-    /// <param name="cancellationToken">Token de cancelación.</param>
-    /// <returns>Lista de servicios registrados por el empleado ordenados cronológicamente.</returns>
-    /// <response code="200">Lista de servicios recuperada exitosamente.</response>
-    [HttpGet("employee/{employeeId:int}")]
-    [ProducesResponseType(typeof(List<ServiceRecordDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetServicesByEmployee(
-        [FromRoute] int employeeId,
-        [FromQuery] DateTime? from,
-        [FromQuery] DateTime? to,
-        CancellationToken cancellationToken)
+    [HttpPut("{id:int}")]
+    [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] UpdateServiceRecordDto dto, CancellationToken cancellationToken)
     {
-        var services = await _serviceRegistry.GetServicesByEmployeeAsync(employeeId, from, to, cancellationToken);
-        return Ok(services);
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            var updated = await _serviceRegistry.UpdateServiceAsync(id, dto, cancellationToken);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar servicio {Id}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Error al actualizar el servicio." });
+        }
+    }
+
+    /// <summary>
+    /// Realiza el borrado lógico (Soft Delete) de un servicio.
+    /// </summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteService([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        bool deleted = await _serviceRegistry.SoftDeleteServiceAsync(id, cancellationToken);
+        if (!deleted)
+            return NotFound(new { message = $"No se encontró ningún servicio con Id {id}." });
+
+        return Ok(new { message = "Servicio eliminado correctamente (soft delete)." });
+    }
+
+    // --- CATÁLOGO DE TIPOS DE SERVICIOS ---
+
+    /// <summary>
+    /// Lista los tipos de servicio activos disponibles para selección.
+    /// </summary>
+    [HttpGet("types")]
+    [ProducesResponseType(typeof(List<ServiceTypeDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetServiceTypes(CancellationToken cancellationToken)
+    {
+        var types = await _serviceRegistry.GetActiveServiceTypesAsync(cancellationToken);
+        return Ok(types);
+    }
+
+    /// <summary>
+    /// Crea un nuevo tipo de servicio en el catálogo.
+    /// </summary>
+    [HttpPost("types")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
+    [ProducesResponseType(typeof(ServiceTypeDto), StatusCodes.Status201Created)]
+    public async Task<IActionResult> CreateServiceType([FromBody] CreateServiceTypeDto dto, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var created = await _serviceRegistry.CreateServiceTypeAsync(dto, cancellationToken);
+        return Created($"/api/services/types/{created.Id}", created);
+    }
+
+    /// <summary>
+    /// Actualiza un tipo de servicio existente.
+    /// </summary>
+    [HttpPut("types/{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
+    [ProducesResponseType(typeof(ServiceTypeDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateServiceType([FromRoute] int id, [FromBody] UpdateServiceTypeDto dto, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            var updated = await _serviceRegistry.UpdateServiceTypeAsync(id, dto, cancellationToken);
+            return Ok(updated);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Borrado lógico (Soft Delete) de un tipo de servicio.
+    /// </summary>
+    [HttpDelete("types/{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> DeleteServiceType([FromRoute] int id, CancellationToken cancellationToken)
+    {
+        bool deleted = await _serviceRegistry.SoftDeleteServiceTypeAsync(id, cancellationToken);
+        if (!deleted)
+            return NotFound(new { message = $"No se encontró ningún tipo de servicio con Id {id}." });
+
+        return Ok(new { message = "Tipo de servicio eliminado lógicamente." });
     }
 }

@@ -67,30 +67,13 @@ public class UserService : IUserService
             department: dto.Department,
             commissionRate: dto.CommissionRate,
             isSuperAdmin: isSuperAdmin,
-            avatar: string.IsNullOrWhiteSpace(dto.Avatar) ? (isDriver ? "🚐" : "👤") : dto.Avatar
+            avatar: string.IsNullOrWhiteSpace(dto.Avatar) ? (isDriver ? "🚗" : "💼") : dto.Avatar,
+            defaultPhoneIncentive: dto.DefaultPhoneIncentive,
+            defaultIsr: dto.DefaultIsr,
+            defaultTss: dto.DefaultTss
         );
 
         _context.Users.Add(user);
-
-        // Si es chofer y no existe como Employee, crear también el Employee para que pueda registrar viajes
-        if (isDriver)
-        {
-            bool empExists = await _context.Employees.AnyAsync(e => e.Email == cleanEmail && !e.IsDeleted, cancellationToken);
-            if (!empExists)
-            {
-                var emp = new Employee(
-                    code: code,
-                    fullName: dto.FullName,
-                    email: cleanEmail,
-                    phone: dto.Phone,
-                    role: dto.Role,
-                    department: dto.Department,
-                    commissionRate: dto.CommissionRate
-                );
-                _context.Employees.Add(emp);
-            }
-        }
-
         await _context.SaveChangesAsync(cancellationToken);
 
         return MapToDto(user);
@@ -111,22 +94,15 @@ public class UserService : IUserService
             department: dto.Department,
             commissionRate: dto.CommissionRate,
             isActive: dto.IsActive,
-            avatar: dto.Avatar
+            avatar: dto.Avatar,
+            defaultPhoneIncentive: dto.DefaultPhoneIncentive,
+            defaultIsr: dto.DefaultIsr,
+            defaultTss: dto.DefaultTss
         );
 
         if (!string.IsNullOrWhiteSpace(dto.Password))
         {
             user.SetPasswordHash(_passwordHasher.HashPassword(dto.Password));
-        }
-
-        // Si es chofer, sincronizar con Employee
-        var employee = await _context.Employees
-            .FirstOrDefaultAsync(e => e.Email == user.Email && !e.IsDeleted, cancellationToken);
-        if (employee != null)
-        {
-            employee.UpdateProfile(user.FullName, user.Email, user.Phone, user.Role, user.Department);
-            employee.UpdateCommissionRate(user.CommissionRate);
-            if (!user.IsActive) employee.Deactivate(); else employee.Activate();
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -143,15 +119,6 @@ public class UserService : IUserService
             return false;
 
         user.SoftDelete();
-
-        // Desactivar también al empleado vinculado
-        var employee = await _context.Employees
-            .FirstOrDefaultAsync(e => e.Email == user.Email && !e.IsDeleted, cancellationToken);
-        if (employee != null)
-        {
-            employee.SoftDelete();
-        }
-
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -166,6 +133,9 @@ public class UserService : IUserService
         Role = user.Role,
         Department = user.Department,
         CommissionRate = user.CommissionRate,
+        DefaultPhoneIncentive = user.DefaultPhoneIncentive,
+        DefaultIsr = user.DefaultIsr,
+        DefaultTss = user.DefaultTss,
         IsActive = user.IsActive,
         IsSuperAdmin = user.IsSuperAdmin,
         Avatar = user.Avatar,

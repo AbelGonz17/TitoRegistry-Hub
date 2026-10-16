@@ -12,8 +12,8 @@ using TitoRegistry.Infrastructure.Persistence;
 namespace TitoRegistry.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20261016185322_InitialCreate_PostgreSql")]
-    partial class InitialCreate_PostgreSql
+    [Migration("20261016200814_CleanSchema_DriverSettlements")]
+    partial class CleanSchema_DriverSettlements
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace TitoRegistry.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("TitoRegistry.Domain.Entities.Employee", b =>
+            modelBuilder.Entity("TitoRegistry.Domain.Entities.DriverSettlement", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,12 +33,15 @@ namespace TitoRegistry.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<decimal>("CommissionAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
-                    b.Property<decimal>("CommissionRate")
+                    b.Property<decimal>("CompanyRetentionAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CompanyRetentionRate")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
 
@@ -48,90 +51,76 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Department")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<decimal>("DriverCommissionRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
+                    b.Property<int>("DriverId")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Phone")
+                    b.Property<decimal>("IsrDeduction")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal>("OperationalSubTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("OtherDeductions")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("OtherIncentives")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("PhoneIncentive")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                    b.Property<decimal>("TotalGrossAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalNetPayable")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TssDeduction")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("DriverId", "Year", "Month")
                         .IsUnique();
 
-                    b.ToTable("Employees");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Code = "CHO-001",
-                            CommissionRate = 25.0m,
-                            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Ruta Norte (Santiago)",
-                            Email = "tito.gonzalez@titotransporte.com",
-                            FullName = "Tito González",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Phone = "+1 (809) 555-0101",
-                            Role = "Conductor Ejecutivo de Rutas"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Code = "CHO-002",
-                            CommissionRate = 22.0m,
-                            CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Ruta Cibao Central",
-                            Email = "sofia.ramirez@titotransporte.com",
-                            FullName = "Sofía Ramírez",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Phone = "+1 (809) 555-0102",
-                            Role = "Conductora de Transporte Interurbano"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            Code = "CHO-003",
-                            CommissionRate = 20.0m,
-                            CreatedAt = new DateTime(2026, 2, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Department = "Transporte de Encomiendas",
-                            Email = "carlos.mendoza@titotransporte.com",
-                            FullName = "Carlos Mendoza",
-                            IsActive = true,
-                            IsDeleted = false,
-                            Phone = "+1 (809) 555-0103",
-                            Role = "Operador de Carga y Fletes"
-                        });
+                    b.ToTable("DriverSettlements");
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.ServiceRecord", b =>
@@ -142,20 +131,10 @@ namespace TitoRegistry.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("ClientAddress")
+                    b.Property<string>("ClientReference")
                         .IsRequired()
-                        .HasMaxLength(250)
-                        .HasColumnType("character varying(250)");
-
-                    b.Property<string>("ClientName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
-                    b.Property<string>("ClientPhone")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -163,11 +142,12 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<decimal>("EmployeeEarnings")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
-                    b.Property<int>("EmployeeId")
+                    b.Property<int>("DriverId")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsDeleted")
@@ -206,7 +186,7 @@ namespace TitoRegistry.Infrastructure.Migrations
 
                     b.HasIndex("ServiceTypeId");
 
-                    b.HasIndex("EmployeeId", "ServiceDate");
+                    b.HasIndex("DriverId", "ServiceDate");
 
                     b.ToTable("ServiceRecords");
                 });
@@ -256,6 +236,52 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ServiceTypes");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Category = "Urbano",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 1500m,
+                            Description = "Servicio de transporte local en la ciudad (ej: traslados, personal)",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Servicio en la Ciudad"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Category = "Interurbano",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 9000m,
+                            Description = "Viajes al interior del país (Samaná, Punta Cana, Santiago, Las Terrenas, etc.)",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Servicio Al Interior"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Category = "Aeropuerto",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 2500m,
+                            Description = "Traslados hacia y desde aeropuertos nacionales e internacionales",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Aereopuerto"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Category = "Corporativo",
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPrice = 42500m,
+                            Description = "Servicio de transporte de ruta fija mensual matutina y vespertina",
+                            IsActive = true,
+                            IsDeleted = false,
+                            Name = "Rutas Fijas"
+                        });
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.User", b =>
@@ -282,6 +308,18 @@ namespace TitoRegistry.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DefaultIsr")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("DefaultPhoneIncentive")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("DefaultTss")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -342,10 +380,13 @@ namespace TitoRegistry.Infrastructure.Migrations
                         new
                         {
                             Id = 1,
-                            Avatar = "👑",
+                            Avatar = "",
                             Code = "ADM-001",
                             CommissionRate = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultIsr = 0m,
+                            DefaultPhoneIncentive = 0m,
+                            DefaultTss = 0m,
                             Department = "Dirección General & Propietario",
                             Email = "admin@titotransporte.com",
                             FullName = "Tito González",
@@ -355,14 +396,65 @@ namespace TitoRegistry.Infrastructure.Migrations
                             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
                             Phone = "+1 (809) 555-0100",
                             Role = "SuperAdmin"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Avatar = "",
+                            Code = "CHO-001",
+                            CommissionRate = 25.0m,
+                            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultIsr = 873.0m,
+                            DefaultPhoneIncentive = 1000.0m,
+                            DefaultTss = 1088.69m,
+                            Department = "Transporte Urbano e Interurbano",
+                            Email = "browel@titotransporte.com",
+                            FullName = "Browel",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSuperAdmin = false,
+                            PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
+                            Phone = "+1 (809) 555-0101",
+                            Role = "Chofer"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Avatar = "",
+                            Code = "CHO-002",
+                            CommissionRate = 25.0m,
+                            CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultIsr = 873.0m,
+                            DefaultPhoneIncentive = 1000.0m,
+                            DefaultTss = 1088.69m,
+                            Department = "Rutas Fijas Corporativas",
+                            Email = "denny@titotransporte.com",
+                            FullName = "Denny",
+                            IsActive = true,
+                            IsDeleted = false,
+                            IsSuperAdmin = false,
+                            PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
+                            Phone = "+1 (809) 555-0102",
+                            Role = "Chofer"
                         });
+                });
+
+            modelBuilder.Entity("TitoRegistry.Domain.Entities.DriverSettlement", b =>
+                {
+                    b.HasOne("TitoRegistry.Domain.Entities.User", "Driver")
+                        .WithMany("Settlements")
+                        .HasForeignKey("DriverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Driver");
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.ServiceRecord", b =>
                 {
-                    b.HasOne("TitoRegistry.Domain.Entities.Employee", "Employee")
+                    b.HasOne("TitoRegistry.Domain.Entities.User", "Driver")
                         .WithMany("ServiceRecords")
-                        .HasForeignKey("EmployeeId")
+                        .HasForeignKey("DriverId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -372,19 +464,21 @@ namespace TitoRegistry.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Employee");
+                    b.Navigation("Driver");
 
                     b.Navigation("ServiceType");
-                });
-
-            modelBuilder.Entity("TitoRegistry.Domain.Entities.Employee", b =>
-                {
-                    b.Navigation("ServiceRecords");
                 });
 
             modelBuilder.Entity("TitoRegistry.Domain.Entities.ServiceType", b =>
                 {
                     b.Navigation("ServiceRecords");
+                });
+
+            modelBuilder.Entity("TitoRegistry.Domain.Entities.User", b =>
+                {
+                    b.Navigation("ServiceRecords");
+
+                    b.Navigation("Settlements");
                 });
 #pragma warning restore 612, 618
         }
