@@ -48,6 +48,14 @@ const showUserMenu = ref(false);
           <span class="nav-icon">📋</span>
           <span>Catálogo de Rutas</span>
         </button>
+        <button 
+          v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador')"
+          :class="['nav-link', { active: currentTab === 'users' }]"
+          @click="$emit('change-tab', 'users')"
+        >
+          <span class="nav-icon">👥</span>
+          <span>Personal / Choferes</span>
+        </button>
       </nav>
 
       <!-- Selector de Chofer y Acciones -->
@@ -97,6 +105,14 @@ const showUserMenu = ref(false);
               <span class="dropdown-badge">{{ currentUser.isSuperAdmin ? 'SUPER ADMIN 👑' : (currentUser.code || 'ACTIVO') }}</span>
             </div>
             <div class="dropdown-divider"></div>
+            <button 
+              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador'"
+              class="dropdown-item" 
+              @click="$emit('change-tab', 'users')"
+            >
+              <span>👥</span>
+              <span>Personal / Choferes</span>
+            </button>
             <button class="dropdown-item logout-item" @click="$emit('logout')">
               <span>🚪</span>
               <span>Cerrar Sesión</span>

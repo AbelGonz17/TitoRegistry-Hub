@@ -13,6 +13,7 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
 <template>
   <div class="bottom-nav-wrapper mobile-only">
     <div class="bottom-nav-container">
+      <!-- 1. Panel -->
       <button 
         :class="['bottom-nav-btn', { active: currentTab === 'dashboard' }]"
         @click="$emit('change-tab', 'dashboard')"
@@ -21,15 +22,7 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
         <span class="label">Panel</span>
       </button>
 
-      <!-- Botón central destacado para registrar viaje -->
-      <button 
-        class="bottom-nav-fab"
-        @click="$emit('open-new-service')"
-        title="Registrar Nuevo Viaje"
-      >
-        <span class="fab-icon">+</span>
-      </button>
-
+      <!-- 2. Catálogo -->
       <button 
         :class="['bottom-nav-btn', { active: currentTab === 'catalog' }]"
         @click="$emit('change-tab', 'catalog')"
@@ -38,13 +31,32 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
         <span class="label">Catálogo</span>
       </button>
 
-      <!-- Perfil / Login en móvil -->
+      <!-- 3. Botón central (+) exactamente en el medio de todos -->
+      <button 
+        class="bottom-nav-fab"
+        @click="$emit('open-new-service')"
+        title="Registrar Nuevo Viaje"
+      >
+        <span class="fab-icon">+</span>
+      </button>
+
+      <!-- 4. Personal -->
+      <button 
+        v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador')"
+        :class="['bottom-nav-btn', { active: currentTab === 'users' }]"
+        @click="$emit('change-tab', 'users')"
+      >
+        <span class="icon">👥</span>
+        <span class="label">Personal</span>
+      </button>
+
+      <!-- 5. Perfil / Login en móvil -->
       <button 
         class="bottom-nav-btn"
         @click="$emit('open-auth', currentUser ? 'profile' : 'login')"
         :title="currentUser ? currentUser.fullName : 'Iniciar Sesión / Registrarse'"
       >
-        <span class="icon">{{ currentUser ? (currentUser.avatar || '👤') : '🔑' }}</span>
+        <span class="icon">{{ currentUser ? (currentUser.avatar || '👑') : '👤' }}</span>
         <span class="label">{{ currentUser ? (currentUser.fullName.split(' ')[0]) : 'Ingresar' }}</span>
       </button>
     </div>
@@ -82,10 +94,10 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
   gap: 3px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
-  min-width: 60px;
+  min-width: 54px;
 }
 
 .bottom-nav-btn .icon {
@@ -116,7 +128,13 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
   box-shadow: 0 4px 18px rgba(34, 197, 94, 0.6);
   cursor: pointer;
   transform: translateY(-14px);
-  transition: transform var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.bottom-nav-fab:hover {
+  box-shadow: 0 6px 22px rgba(34, 197, 94, 0.8);
 }
 
 .bottom-nav-fab:active {

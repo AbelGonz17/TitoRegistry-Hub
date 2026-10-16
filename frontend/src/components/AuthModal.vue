@@ -43,12 +43,12 @@ const handleLogin = async () => {
 
   try {
     loading.value = true;
-    const session = await authService.login(
+    const result = await authService.login(
       loginForm.value.email,
       loginForm.value.password,
       loginForm.value.rememberUser
     );
-    emit('login-success', session);
+    emit('login-success', result.user || result);
   } catch (err) {
     errorMessage.value = err.message || 'Error al iniciar sesión.';
   } finally {

@@ -1,223 +1,165 @@
-// Servicio de Autenticación y Gestión de Usuarios para Transporte Tito
-const USERS_STORAGE_KEY = 'tito_registered_users';
-const CURRENT_USER_KEY = 'tito_current_user';
+// Servicio de Autenticación integrado con los Endpoints Oficiales de Transporte Tito
+// 1. POST /api/auth/login
+// 2. GET  /api/auth/me
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5107/api';
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
 const REMEMBERED_EMAIL_KEY = 'tito_remembered_email';
 
-export const authService = {
-  // Obtener correo recordado
-  getRememberedEmail() {
-    try {
-      return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
-    } catch {
-      return '';
-    }
-  },
-
-  // Guardar o limpiar correo recordado
-  setRememberedEmail(email, remember) {
-    try {
-      if (remember && email) {
-        localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
-      } else {
-        localStorage.removeItem(REMEMBERED_EMAIL_KEY);
-      }
-    } catch (e) {
-      console.warn('Error al persistir email recordado:', e);
-    }
-  },
-
-  // Obtener todos los usuarios registrados
-  getUsers() {
-    try {
-      const stored = localStorage.getItem(USERS_STORAGE_KEY);
-      if (!stored) {
-        return [];
-      }
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.warn('Error al leer usuarios de localStorage:', e);
-      return [];
-    }
-  },
-
-  // Obtener usuario con sesión activa
-  getCurrentUser() {
-    try {
-      const stored = localStorage.getItem(CURRENT_USER_KEY) || sessionStorage.getItem(CURRENT_USER_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-      return null;
-    } catch (e) {
-      console.warn('Error al leer sesión actual:', e);
-      return null;
-    }
-  },
-
-  // Iniciar sesión con email y contraseña
-  // Si es la primera vez que se ingresa al sistema y no hay SuperAdmin, se crea automáticamente como SuperAdmin
-  login(email, password, rememberUser = true) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const users = this.getUsers();
-        const cleanEmail = (email || '').trim().toLowerCase();
-
-        if (!cleanEmail || !cleanEmail.includes('@')) {
-          return reject(new Error('Por favor ingresa un correo electrónico válido.'));
-        }
-
-        if (!password || password.length < 4) {
-          return reject(new Error('Por favor ingresa tu contraseña.'));
-        }
-
-        const user = users.find(u => u.email.toLowerCase() === cleanEmail);
-
-        // Si aún no existe el usuario
-        if (!user) {
-          const hasSuperAdmin = users.some(u => u.isSuperAdmin);
-
-          // Si el sistema no tiene SuperAdmin, este primer login lo registra automáticamente como SuperAdmin
-          if (!hasSuperAdmin || users.length === 0) {
-            const displayName = cleanEmail.split('@')[0]
-              .replace(/[._-]/g, ' ')
-              .replace(/\b\w/g, l => l.toUpperCase()) || 'Super Administrador';
-
-            const newSuperAdmin = {
-              id: 1,
-              code: 'ADM-001',
-              fullName: displayName,
-              email: cleanEmail,
-              password: password,
-              phone: '',
-              role: 'SuperAdmin',
-              department: 'Dirección General & Propietario',
-              commissionRate: 0,
-              isSuperAdmin: true,
-              avatar: '👑',
-              createdAt: new Date().toISOString(),
-              isActive: true
-            };
-
-            const updatedUsers = [...users, newSuperAdmin];
-            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-            this.setRememberedEmail(cleanEmail, rememberUser);
-
-            const sessionUser = {
-              id: newSuperAdmin.id,
-              code: newSuperAdmin.code,
-              fullName: newSuperAdmin.fullName,
-              email: newSuperAdmin.email,
-              phone: newSuperAdmin.phone,
-              role: newSuperAdmin.role,
-              department: newSuperAdmin.department,
-              commissionRate: 0,
-              isSuperAdmin: true,
-              avatar: newSuperAdmin.avatar,
-              loggedAt: new Date().toISOString(),
-              isFirstSuperAdmin: true
-            };
-
-            if (rememberUser) {
-              localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
-            } else {
-              sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
-            }
-
-            return resolve(sessionUser);
-          }
-
-          return reject(new Error('Credenciales incorrectas o usuario no registrado.'));
-        }
-
-        if (user.password && user.password !== password) {
-          return reject(new Error('Contraseña incorrecta. Verifique sus datos e intente nuevamente.'));
-        }
-
-        // Manejar persistencia de "Recordar mi usuario"
-        this.setRememberedEmail(cleanEmail, rememberUser);
-
-        // Crear objeto de sesión
-        const sessionUser = {
-          id: user.id,
-          code: user.code,
-          fullName: user.fullName,
-          email: user.email,
-          phone: user.phone || '',
-          role: user.role || 'SuperAdmin',
-          department: user.department || 'Operaciones',
-          commissionRate: user.commissionRate ?? 0,
-          isSuperAdmin: user.isSuperAdmin ?? (user.role === 'SuperAdmin'),
-          avatar: user.avatar || (user.isSuperAdmin ? '👑' : '👤'),
-          loggedAt: new Date().toISOString()
-        };
-
-        if (rememberUser) {
-          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
-        } else {
-          sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
-          localStorage.removeItem(CURRENT_USER_KEY);
-        }
-
-        resolve(sessionUser);
-      }, 350);
-    });
-  },
-
-  // Creación de Administradores o Choferes (usado internamente por el SuperAdmin)
-  createAccount(accountData) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const users = this.getUsers();
-        const cleanEmail = (accountData.email || '').trim().toLowerCase();
-
-        if (!accountData.fullName || accountData.fullName.trim().length < 3) {
-          return reject(new Error('El nombre debe tener al menos 3 caracteres.'));
-        }
-
-        if (!cleanEmail || !cleanEmail.includes('@')) {
-          return reject(new Error('Correo electrónico inválido.'));
-        }
-
-        const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
-        if (existing) {
-          return reject(new Error('Ya existe una cuenta con este correo electrónico.'));
-        }
-
-        const maxId = users.reduce((max, u) => (u.id > max ? u.id : max), 0);
-        const newId = maxId + 1;
-        const isDriver = accountData.role === 'Chofer' || accountData.role === 'Conductor';
-        const prefix = isDriver ? 'CHO' : 'ADM';
-        const generatedCode = `${prefix}-${String(newId).padStart(3, '0')}`;
-
-        const newAccount = {
-          id: newId,
-          code: generatedCode,
-          fullName: accountData.fullName.trim(),
-          email: cleanEmail,
-          password: accountData.password || '123456',
-          phone: accountData.phone ? accountData.phone.trim() : '',
-          role: accountData.role || 'Conductor',
-          department: accountData.department || (isDriver ? 'Flota de Rutas' : 'Administración'),
-          commissionRate: Number(accountData.commissionRate) || (isDriver ? 25 : 0),
-          isSuperAdmin: false,
-          avatar: isDriver ? '🚚' : '👔',
-          createdAt: new Date().toISOString(),
-          isActive: true
-        };
-
-        const updatedUsers = [...users, newAccount];
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-        resolve(newAccount);
-      }, 300);
-    });
-  },
-
-  // Cerrar sesión
-  logout() {
-    localStorage.removeItem(CURRENT_USER_KEY);
-    sessionStorage.removeItem(CURRENT_USER_KEY);
+// Obtener correo recordado
+export function getRememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
+  } catch {
+    return '';
   }
+}
+
+// Guardar o limpiar correo recordado
+export function setRememberedEmail(email, remember) {
+  try {
+    if (remember && email) {
+      localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+    } else {
+      localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+    }
+  } catch (e) {
+    console.warn('Error al persistir email recordado:', e);
+  }
+}
+
+// Obtener token activo
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+// 1. Iniciar sesión (/api/auth/login)
+export async function login(email, password, rememberUser = true) {
+  const cleanEmail = (email || '').trim().toLowerCase();
+
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    throw new Error('Por favor ingresa un correo electrónico válido.');
+  }
+
+  if (!password) {
+    throw new Error('El correo y la contraseña son obligatorios.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      email: cleanEmail, 
+      password,
+      rememberUser: !!rememberUser 
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    const message = errorData?.message || 'Credenciales inválidas o error en el servidor.';
+    throw new Error(message);
+  }
+
+  const data = await response.json();
+
+  if (!data || !data.token) {
+    throw new Error('Respuesta inválida del servidor: falta el token JWT.');
+  }
+
+  // Normalizar datos de usuario
+  const user = {
+    ...data.user,
+    avatar: data.user.avatar || (data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚚' : '👔')),
+    loggedAt: new Date().toISOString()
+  };
+
+  // Manejar persistencia de "Recordar mi usuario"
+  setRememberedEmail(cleanEmail, rememberUser);
+
+  if (rememberUser) {
+    localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem('tito_current_user', JSON.stringify(user));
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, data.token);
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    sessionStorage.setItem('tito_current_user', JSON.stringify(user));
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('tito_current_user');
+  }
+
+  return { ...data, user };
+}
+
+// 2. Validar token al cargar la app o refrescar (/api/auth/me)
+export async function getCurrentUser() {
+  const token = getToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      logout();
+      return null;
+    }
+
+    const user = await response.json();
+    const normalized = {
+      ...user,
+      avatar: user.avatar || (user.isSuperAdmin ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔')),
+    };
+
+    if (localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(USER_KEY, JSON.stringify(normalized));
+      localStorage.setItem('tito_current_user', JSON.stringify(normalized));
+    } else {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
+      sessionStorage.setItem('tito_current_user', JSON.stringify(normalized));
+    }
+
+    return normalized;
+  } catch (err) {
+    console.warn('[Auth] Error al verificar token en /api/auth/me:', err);
+    // En caso de fallo de red, retornar usuario en caché si existe
+    try {
+      const cached = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+// 3. Cerrar sesión
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem('tito_current_user');
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem('tito_current_user');
+}
+
+export const authService = {
+  login,
+  getCurrentUser,
+  checkAuth: getCurrentUser,
+  logout,
+  getToken,
+  getRememberedEmail,
+  setRememberedEmail
 };
 
 export default authService;

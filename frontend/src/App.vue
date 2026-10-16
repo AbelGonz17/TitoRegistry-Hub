@@ -8,11 +8,13 @@ import Toast from './components/Toast.vue';
 import RegisterServiceModal from './components/RegisterServiceModal.vue';
 import ServiceTypeModal from './components/ServiceTypeModal.vue';
 import AuthModal from './components/AuthModal.vue';
+import UserModal from './components/UserModal.vue';
 import DashboardView from './views/DashboardView.vue';
 import CatalogView from './views/CatalogView.vue';
+import UsersView from './views/UsersView.vue';
 
 // Estado global de la aplicación
-const currentTab = ref('dashboard'); // 'dashboard' | 'catalog'
+const currentTab = ref('dashboard'); // 'dashboard' | 'catalog' | 'users'
 const backendOnline = ref(false);
 const loading = ref(true);
 const modalLoading = ref(false);
@@ -22,16 +24,26 @@ const currentEmployeeId = ref(1);
 const employeeSummary = ref({});
 const services = ref([]);
 const serviceTypes = ref([]);
+const users = ref([]);
 
-// Autenticación y Sesión de Usuario
-const currentUser = ref(authService.getCurrentUser());
+// Autenticación y Sesión de Usuario (lectura síncrona de caché inicial)
+const getCachedUser = () => {
+  try {
+    const cached = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user') || localStorage.getItem('tito_current_user');
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+};
+const currentUser = ref(getCachedUser());
 const showAuthModal = ref(false);
-const authModalMode = ref('login'); // 'login' | 'register'
 
 // Modales del sistema
 const showRegisterModal = ref(false);
 const showCatalogModal = ref(false);
+const showUserModal = ref(false);
 const editingServiceType = ref(null);
+const editingUser = ref(null);
 
 // Notificaciones Toast
 const toast = ref({
@@ -70,48 +82,14 @@ const checkHealth = async () => {
 const loadEmployees = async () => {
   try {
     const backendList = await api.getEmployees().catch(() => []);
-    const localUsers = authService.getUsers() || [];
+    employees.value = backendList || [];
 
-    // Combinar choferes del backend con usuarios registrados localmente
-    const mergedMap = new Map();
-    
-    // Primero los del backend
-    (backendList || []).forEach(emp => {
-      mergedMap.set(emp.id, {
-        id: emp.id,
-        code: emp.code,
-        fullName: emp.fullName,
-        email: emp.email,
-        phone: emp.phone,
-        role: emp.role,
-        department: emp.department,
-        commissionRate: emp.commissionRate,
-        isActive: emp.isActive
-      });
-    });
-
-    // Luego agregar usuarios registrados si no existen por ID
-    localUsers.forEach(u => {
-      if (!mergedMap.has(u.id)) {
-        mergedMap.set(u.id, {
-          id: u.id,
-          code: u.code,
-          fullName: u.fullName,
-          email: u.email,
-          phone: u.phone,
-          role: u.role,
-          department: u.department,
-          commissionRate: u.commissionRate,
-          isActive: true
-        });
+    // Si hay un chofer logueado, sincronizar
+    if (currentUser.value?.role === 'Chofer') {
+      const match = employees.value.find(e => e.email === currentUser.value.email || e.id === currentUser.value.id);
+      if (match) {
+        currentEmployeeId.value = match.id;
       }
-    });
-
-    employees.value = Array.from(mergedMap.values());
-
-    // Si hay un usuario logueado, sincronizar el chofer activo con su cuenta
-    if (currentUser.value && currentUser.value.id) {
-      currentEmployeeId.value = currentUser.value.id;
     } else if (employees.value.length > 0 && !currentEmployeeId.value) {
       currentEmployeeId.value = employees.value[0].id;
     }
@@ -132,10 +110,9 @@ const loadEmployeeData = async () => {
     if (summary) {
       employeeSummary.value = summary;
     } else {
-      // Estado de reserva si es un chofer recién registrado
       employeeSummary.value = {
         id: currentEmployee.value.id,
-        code: currentEmployee.value.code || 'CHO-NUEVO',
+        code: currentEmployee.value.code || 'CHO-001',
         fullName: currentEmployee.value.fullName,
         email: currentEmployee.value.email || '',
         phone: currentEmployee.value.phone || '',
@@ -167,83 +144,67 @@ const loadCatalog = async () => {
   }
 };
 
+const loadUsers = async () => {
+  try {
+    const list = await api.getUsers();
+    users.value = list || [];
+  } catch (err) {
+    console.warn('Error al cargar usuarios:', err);
+  }
+};
+
 const refreshAll = async () => {
   await checkHealth();
   await Promise.all([
     loadEmployees(),
     loadEmployeeData(),
-    loadCatalog()
+    loadCatalog(),
+    loadUsers()
   ]);
 };
 
 onMounted(async () => {
+  // Verificar token en el backend
+  const verifiedUser = await authService.checkAuth();
+  if (verifiedUser) {
+    currentUser.value = verifiedUser;
+  }
+
   await refreshAll();
-  // Auto-refresco del estado de conexión cada 15 segundos
   setInterval(checkHealth, 15000);
 
-  // Si no hay sesión iniciada, abrir ventana de bienvenida / login para invitar al registro
+  // Si no hay sesión iniciada, abrir ventana de login
   if (!currentUser.value) {
     showAuthModal.value = true;
   }
 });
 
 // Manejo de Autenticación
-const openAuthModal = (mode = 'login') => {
-  authModalMode.value = mode === 'profile' ? 'login' : mode;
+const openAuthModal = () => {
   showAuthModal.value = true;
 };
 
 const onLoginSuccess = async (session) => {
   currentUser.value = session;
   showAuthModal.value = false;
-  currentEmployeeId.value = session.id;
 
-  // Asegurar que esté en la lista de empleados
-  const exists = employees.value.some(e => e.id === session.id);
-  if (!exists) {
-    employees.value.unshift({
-      id: session.id,
-      code: session.code,
-      fullName: session.fullName,
-      email: session.email,
-      phone: session.phone,
-      role: session.role,
-      department: session.department,
-      commissionRate: session.commissionRate,
-      isActive: true
-    });
+  await refreshAll();
+
+  // Si es chofer, enfocar su ID
+  if (session.role === 'Chofer') {
+    const match = employees.value.find(e => e.email === session.email);
+    if (match) currentEmployeeId.value = match.id;
   }
 
-  await loadEmployeeData();
-  showToast(`¡Bienvenido de vuelta, ${session.fullName}!`, 'success');
-};
-
-const onRegisterSuccess = async (newSession) => {
-  currentUser.value = newSession;
-  showAuthModal.value = false;
-
-  // Registrar en la lista reactiva de empleados
-  employees.value.unshift({
-    id: newSession.id,
-    code: newSession.code,
-    fullName: newSession.fullName,
-    email: newSession.email,
-    phone: newSession.phone,
-    role: newSession.role,
-    department: newSession.department,
-    commissionRate: newSession.commissionRate,
-    isActive: true
-  });
-
-  currentEmployeeId.value = newSession.id;
-  await loadEmployeeData();
-  showToast(`¡Registro exitoso! Bienvenido al equipo, ${newSession.fullName}.`, 'success');
+  showToast(`¡Bienvenido de vuelta, ${session.fullName}! (${session.role})`, 'success');
 };
 
 const onLogout = () => {
   authService.logout();
   currentUser.value = null;
-  showToast('Has cerrado sesión en Transporte Tito.', 'info');
+  currentTab.value = 'dashboard';
+  showToast('Has cerrado sesión correctamente.', 'info');
+  showAuthModal.value = true;
 };
 
 // Manejo de Chofer
@@ -258,7 +219,7 @@ const onRegisterService = async (payload) => {
   try {
     modalLoading.value = true;
     const created = await api.registerService(payload);
-    showToast(`¡Viaje ${created.serviceCode} registrado! Ganancia sumada: +$${created.employeeEarnings.toFixed(2)}`, 'success');
+    showToast(`¡Viaje ${created.serviceCode} registrado! Ganancia: +$${created.employeeEarnings.toFixed(2)}`, 'success');
     showRegisterModal.value = false;
     await loadEmployeeData();
   } catch (error) {
@@ -307,6 +268,52 @@ const onDeleteServiceType = async (id) => {
     showToast(error.message || 'Error al eliminar el servicio', 'error');
   }
 };
+
+// Manejo de Gestión de Personal / Usuarios (CRUD)
+const openCreateUserModal = () => {
+  editingUser.value = null;
+  showUserModal.value = true;
+};
+
+const openEditUserModal = (u) => {
+  editingUser.value = u;
+  showUserModal.value = true;
+};
+
+const onSaveUser = async (payload) => {
+  try {
+    modalLoading.value = true;
+    if (editingUser.value) {
+      await api.updateUser(editingUser.value.id, payload);
+      showToast(`Usuario ${payload.fullName} actualizado correctamente`, 'success');
+    } else {
+      const created = await api.createUser(payload);
+      showToast(`¡Usuario ${created.fullName} (${created.code}) creado exitosamente!`, 'success');
+    }
+    showUserModal.value = false;
+    await Promise.all([
+      loadUsers(),
+      loadEmployees()
+    ]);
+  } catch (error) {
+    showToast(error.message || 'Error al guardar el usuario', 'error');
+  } finally {
+    modalLoading.value = false;
+  }
+};
+
+const onDeleteUser = async (id) => {
+  try {
+    await api.deleteUser(id);
+    showToast('Usuario dado de baja (Soft delete) correctamente', 'success');
+    await Promise.all([
+      loadUsers(),
+      loadEmployees()
+    ]);
+  } catch (error) {
+    showToast(error.message || 'Error al dar de baja el usuario', 'error');
+  }
+};
 </script>
 
 <template>
@@ -328,7 +335,7 @@ const onDeleteServiceType = async (id) => {
     <!-- Contenido Principal -->
     <main class="main-content">
       <div class="content-container">
-        <!-- Vistas -->
+        <!-- Vista 1: Panel de Control de Viajes y Ganancias -->
         <DashboardView 
           v-if="currentTab === 'dashboard'"
           :employeeSummary="employeeSummary"
@@ -338,6 +345,7 @@ const onDeleteServiceType = async (id) => {
           @refresh="loadEmployeeData"
         />
 
+        <!-- Vista 2: Catálogo Dinámico de Rutas y Servicios -->
         <CatalogView 
           v-else-if="currentTab === 'catalog'"
           :serviceTypes="serviceTypes"
@@ -345,6 +353,18 @@ const onDeleteServiceType = async (id) => {
           @open-create-modal="openCreateCatalogModal"
           @edit-service-type="openEditCatalogModal"
           @delete-service-type="onDeleteServiceType"
+        />
+
+        <!-- Vista 3: Gestión de Personal & Usuarios (Choferes & Administradores) -->
+        <UsersView 
+          v-else-if="currentTab === 'users'"
+          :users="users"
+          :loading="loading"
+          :currentUser="currentUser"
+          @open-create-modal="openCreateUserModal"
+          @edit-user="openEditUserModal"
+          @delete-user="onDeleteUser"
+          @refresh="loadUsers"
         />
       </div>
     </main>
@@ -365,6 +385,15 @@ const onDeleteServiceType = async (id) => {
       :canClose="true"
       @close="showAuthModal = false"
       @login-success="onLoginSuccess"
+    />
+
+    <!-- Modal Personal / Usuario (Crear / Editar) -->
+    <UserModal 
+      :show="showUserModal"
+      :user="editingUser"
+      :loading="modalLoading"
+      @close="showUserModal = false"
+      @submit="onSaveUser"
     />
 
     <!-- Modal Registrar Viaje / Servicio -->
