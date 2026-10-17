@@ -3,7 +3,11 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5107/api'
 
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
-  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  const token = 
+    localStorage.getItem('tito_auth_token') || 
+    sessionStorage.getItem('tito_auth_token') || 
+    localStorage.getItem('auth_token') || 
+    sessionStorage.getItem('auth_token');
 
   const config = {
     headers: {

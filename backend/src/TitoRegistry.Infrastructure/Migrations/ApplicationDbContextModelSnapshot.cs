@@ -686,6 +686,21 @@ namespace TitoRegistry.Infrastructure.Migrations
                             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
                             Phone = "+1 (809) 555-0102",
                             Role = "Chofer"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "ADM-002",
+                            CommissionRate = 0m,
+                            CreatedAt = new DateTime(2026, 1, 5, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Department = "Administración & Nómina",
+                            Email = "administracion@titotransporte.com",
+                            FullName = "Laura Martínez",
+                            IsActive = true,
+                            IsDeleted = false,
+                            PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
+                            Phone = "+1 (809) 555-0103",
+                            Role = "Administrador"
                         });
                 });
 

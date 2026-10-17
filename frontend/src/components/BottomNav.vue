@@ -40,9 +40,9 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
         <span class="fab-icon">+</span>
       </button>
 
-      <!-- 4. Personal -->
+      <!-- 4. Personal (Solo Admins y SuperAdmins) -->
       <button 
-        v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador')"
+        v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador' || currentUser.role === 'SuperAdmin')"
         :class="['bottom-nav-btn', { active: currentTab === 'users' }]"
         @click="$emit('change-tab', 'users')"
       >
@@ -54,10 +54,10 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
       <button 
         class="bottom-nav-btn"
         @click="$emit('open-auth', currentUser ? 'profile' : 'login')"
-        :title="currentUser ? currentUser.fullName : 'Iniciar Sesión / Registrarse'"
+        :title="currentUser ? (currentUser.fullName || currentUser.name || currentUser.email || 'Usuario') : 'Iniciar Sesión / Registrarse'"
       >
-        <span class="icon">{{ currentUser ? (currentUser.avatar || '👑') : '👤' }}</span>
-        <span class="label">{{ currentUser ? (currentUser.fullName.split(' ')[0]) : 'Ingresar' }}</span>
+        <span class="icon">{{ currentUser ? (currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑')) : '👤' }}</span>
+        <span class="label">{{ currentUser ? (((currentUser.fullName || currentUser.name || currentUser.email || 'Usuario').split(' ')[0])) : 'Ingresar' }}</span>
       </button>
     </div>
   </div>

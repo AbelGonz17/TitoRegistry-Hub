@@ -49,7 +49,7 @@ const showUserMenu = ref(false);
           <span>Catálogo de Rutas</span>
         </button>
         <button 
-          v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador')"
+          v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador' || currentUser.role === 'SuperAdmin')"
           :class="['nav-link', { active: currentTab === 'users' }]"
           @click="$emit('change-tab', 'users')"
         >
@@ -66,8 +66,8 @@ const showUserMenu = ref(false);
           <span class="status-label desktop-only">{{ backendOnline ? 'API Conectada' : 'Offline' }}</span>
         </div>
 
-        <!-- Selector de Chofer Activo -->
-        <div class="driver-picker desktop-only">
+        <!-- Selector de Chofer Activo (Solo Administradores y SuperAdmin) -->
+        <div v-if="currentUser?.role !== 'Chofer'" class="driver-picker desktop-only">
           <label class="picker-label">Chofer Activo:</label>
           <select 
             class="picker-select" 
@@ -80,6 +80,13 @@ const showUserMenu = ref(false);
           </select>
         </div>
 
+        <!-- Badge de Chofer Fijo si es Chofer -->
+        <div v-else class="driver-static-badge desktop-only">
+          <span class="static-badge-icon">🚐</span>
+          <span class="static-badge-name">{{ currentUser.fullName || 'Chofer' }}</span>
+          <span class="static-badge-rate">({{ currentUser.commissionRate ?? 25 }}%)</span>
+        </div>
+
         <!-- Botón de acción rápida: Registrar Viaje -->
         <button class="btn btn-primary desktop-only" @click="$emit('open-new-service')">
           <span>+</span>
@@ -89,9 +96,9 @@ const showUserMenu = ref(false);
         <!-- Bloque de Autenticación / Perfil de Usuario -->
         <div v-if="currentUser" class="user-profile-wrapper">
           <div class="user-chip" @click="showUserMenu = !showUserMenu">
-            <span class="user-avatar">{{ currentUser.avatar || '👤' }}</span>
+            <span class="user-avatar">{{ currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑') }}</span>
             <div class="user-info desktop-only">
-              <span class="user-name">{{ currentUser.fullName }}</span>
+              <span class="user-name">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
               <span class="user-role">{{ currentUser.role || 'Conductor' }}</span>
             </div>
             <span class="dropdown-chevron">▾</span>
@@ -100,13 +107,13 @@ const showUserMenu = ref(false);
           <!-- Menú desplegable del usuario -->
           <div v-if="showUserMenu" class="user-dropdown-menu" @click="showUserMenu = false">
             <div class="dropdown-header">
-              <span class="dropdown-user-name">{{ currentUser.fullName }}</span>
+              <span class="dropdown-user-name">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
               <span class="dropdown-user-email">{{ currentUser.email }}</span>
-              <span class="dropdown-badge">{{ currentUser.isSuperAdmin ? 'SUPER ADMIN 👑' : (currentUser.code || 'ACTIVO') }}</span>
+              <span class="dropdown-badge">{{ (currentUser.isSuperAdmin || currentUser.role === 'SuperAdmin') ? 'SUPER ADMIN 👑' : (currentUser.role === 'Administrador' ? 'ADMINISTRADOR 👔' : (currentUser.code || 'CHOFER 🚐')) }}</span>
             </div>
             <div class="dropdown-divider"></div>
             <button 
-              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador'"
+              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador' || currentUser.role === 'SuperAdmin'"
               class="dropdown-item" 
               @click="$emit('change-tab', 'users')"
             >
@@ -279,6 +286,32 @@ const showUserMenu = ref(false);
 
 .picker-select:focus {
   border-color: var(--brand-green-light);
+}
+
+.driver-static-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.static-badge-icon {
+  font-size: 1rem;
+}
+
+.static-badge-name {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.static-badge-rate {
+  font-weight: 600;
+  color: var(--brand-green-light);
+  font-size: 0.8rem;
 }
 
 /* Perfil de Usuario */

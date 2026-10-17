@@ -98,7 +98,7 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
         <form @submit.prevent="handleLogin" class="auth-form">
           <!-- Cuentas de Acceso Rápido para Pruebas -->
           <div class="demo-accounts-card">
-            <span class="demo-title">Acceso rápido por perfil:</span>
+            <span class="demo-title">Acceso rápido por perfil (Contraseña: Admin123!):</span>
             <div class="demo-buttons">
               <button 
                 type="button" 
@@ -111,8 +111,16 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
               <button 
                 type="button" 
                 class="demo-chip"
+                @click="selectDemoAccount('administracion@titotransporte.com')"
+                title="Administración y Nómina"
+              >
+                👔 Admin
+              </button>
+              <button 
+                type="button" 
+                class="demo-chip"
                 @click="selectDemoAccount('browel@titotransporte.com')"
-                title="Chofer Browel"
+                title="Chofer Browel (25%)"
               >
                 🚐 Browel
               </button>
@@ -120,7 +128,7 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
                 type="button" 
                 class="demo-chip"
                 @click="selectDemoAccount('denny@titotransporte.com')"
-                title="Chofer Denny"
+                title="Chofer Denny (25%)"
               >
                 🚐 Denny
               </button>

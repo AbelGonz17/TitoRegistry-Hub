@@ -26,11 +26,30 @@ const services = ref([]);
 const serviceTypes = ref([]);
 const users = ref([]);
 
-// Autenticación y Sesión de Usuario (lectura síncrona de caché inicial)
+// Autenticación y Sesión de Usuario (lectura síncrona de caché inicial protegida)
 const getCachedUser = () => {
   try {
-    const cached = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user') || localStorage.getItem('tito_current_user');
-    return cached ? JSON.parse(cached) : null;
+    const raw = 
+      localStorage.getItem('tito_auth_user') || 
+      sessionStorage.getItem('tito_auth_user') || 
+      localStorage.getItem('auth_user') || 
+      localStorage.getItem('tito_current_user');
+
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+
+    // Si viene de otra aplicación ajena (ej. gym.com o no tiene nombre/email válido de Tito), purgarlo
+    if (!user || (!user.fullName && !user.name) || user.email?.includes('@gym.com')) {
+      authService.logout();
+      return null;
+    }
+
+    // Normalizar propiedad fullName y avatar
+    if (!user.fullName && user.name) user.fullName = user.name;
+    if (!user.avatar) {
+      user.avatar = (user.role === 'SuperAdmin' || user.isSuperAdmin) ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔');
+    }
+    return user;
   } catch {
     return null;
   }
@@ -168,6 +187,8 @@ onMounted(async () => {
   const verifiedUser = await authService.checkAuth();
   if (verifiedUser) {
     currentUser.value = verifiedUser;
+  } else {
+    currentUser.value = null;
   }
 
   await refreshAll();
@@ -176,8 +197,22 @@ onMounted(async () => {
   // Si no hay sesión iniciada, abrir ventana de login
   if (!currentUser.value) {
     showAuthModal.value = true;
+  } else if (currentUser.value.role === 'Chofer') {
+    const match = employees.value.find(e => e.email === currentUser.value.email || e.id === currentUser.value.id);
+    if (match) currentEmployeeId.value = match.id;
+    if (currentTab.value === 'users') currentTab.value = 'dashboard';
   }
 });
+
+// Manejo de Navegación con Guardas de Rol
+const onChangeTab = (tab) => {
+  if (tab === 'users' && currentUser.value?.role === 'Chofer') {
+    showToast('La gestión de personal y nómina está reservada para Administradores.', 'error');
+    currentTab.value = 'dashboard';
+    return;
+  }
+  currentTab.value = tab;
+};
 
 // Manejo de Autenticación
 const openAuthModal = () => {
@@ -190,10 +225,11 @@ const onLoginSuccess = async (session) => {
 
   await refreshAll();
 
-  // Si es chofer, enfocar su ID
+  // Si es chofer, enfocar su ID y restringir tab a dashboard
   if (session.role === 'Chofer') {
-    const match = employees.value.find(e => e.email === session.email);
+    const match = employees.value.find(e => e.email === session.email || e.id === session.id);
     if (match) currentEmployeeId.value = match.id;
+    if (currentTab.value === 'users') currentTab.value = 'dashboard';
   }
 
   showToast(`¡Bienvenido de vuelta, ${session.fullName}! (${session.role})`, 'success');
@@ -209,6 +245,9 @@ const onLogout = () => {
 
 // Manejo de Chofer
 const onEmployeeChange = async (newId) => {
+  if (currentUser.value?.role === 'Chofer') {
+    return; // Chofer no puede visualizar ganancias de otros choferes
+  }
   currentEmployeeId.value = newId;
   await loadEmployeeData();
   showToast(`Cambiado a chofer: ${currentEmployee.value.fullName}`, 'info');
@@ -326,7 +365,7 @@ const onDeleteUser = async (id) => {
       :currentTab="currentTab"
       :currentUser="currentUser"
       @change-employee="onEmployeeChange"
-      @change-tab="tab => currentTab = tab"
+      @change-tab="onChangeTab"
       @open-new-service="showRegisterModal = true"
       @open-auth="openAuthModal"
       @logout="onLogout"
@@ -373,7 +412,7 @@ const onDeleteUser = async (id) => {
     <BottomNav 
       :currentTab="currentTab"
       :currentUser="currentUser"
-      @change-tab="tab => currentTab = tab"
+      @change-tab="onChangeTab"
       @open-new-service="showRegisterModal = true"
       @open-auth="openAuthModal"
       @refresh="refreshAll"

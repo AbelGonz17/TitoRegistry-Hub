@@ -255,7 +255,26 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             UpdatedAt = (DateTime?)null
         };
 
-        modelBuilder.Entity<User>().HasData(superAdmin, driverBrowel, driverDenny);
+        // 3. Usuario Administrador Oficial (para gestión de nómina, personal y aprobaciones)
+        var adminLaura = new
+        {
+            Id = 4,
+            Code = "ADM-002",
+            FullName = "Laura Martínez",
+            Email = "administracion@titotransporte.com",
+            PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a", // Password: Admin123!
+            Phone = "+1 (809) 555-0103",
+            Role = UserRole.Administrador,
+            Department = "Administración & Nómina",
+            CommissionRate = 0m,
+            IsActive = true,
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<User>().HasData(superAdmin, driverBrowel, driverDenny, adminLaura);
 
         // 3. Catálogo oficial de tipos de servicios reales
         var type1 = new

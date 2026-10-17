@@ -3,8 +3,8 @@
 // 2. GET  /api/auth/me
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5107/api';
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
+const TOKEN_KEY = 'tito_auth_token';
+const USER_KEY = 'tito_auth_user';
 const REMEMBERED_EMAIL_KEY = 'tito_remembered_email';
 
 // Obtener correo recordado
@@ -32,7 +32,13 @@ export function setRememberedEmail(email, remember) {
 // Obtener token activo
 export function getToken() {
   try {
-    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+    return (
+      localStorage.getItem(TOKEN_KEY) ||
+      sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem('auth_token') ||
+      sessionStorage.getItem('auth_token') ||
+      null
+    );
   } catch {
     return null;
   }
@@ -75,24 +81,28 @@ export async function login(email, password, rememberUser = true) {
   // Normalizar datos de usuario
   const user = {
     ...data.user,
-    avatar: data.user.avatar || (data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚚' : '👔')),
+    fullName: data.user.fullName || data.user.name || cleanEmail.split('@')[0],
+    avatar: data.user.avatar || (data.user.role === 'SuperAdmin' || data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚚' : '👔')),
     loggedAt: new Date().toISOString()
   };
 
   // Manejar persistencia de "Recordar mi usuario"
   setRememberedEmail(cleanEmail, rememberUser);
 
+  // Limpiar llaves genéricas antiguas
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_user');
+
   if (rememberUser) {
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    localStorage.setItem('tito_current_user', JSON.stringify(user));
   } else {
     sessionStorage.setItem(TOKEN_KEY, data.token);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-    sessionStorage.setItem('tito_current_user', JSON.stringify(user));
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('tito_current_user');
   }
 
   return { ...data, user };
@@ -118,24 +128,30 @@ export async function getCurrentUser() {
     const user = await response.json();
     const normalized = {
       ...user,
-      avatar: user.avatar || (user.isSuperAdmin ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔')),
+      fullName: user.fullName || user.name || user.email?.split('@')[0] || 'Usuario',
+      avatar: user.avatar || (user.role === 'SuperAdmin' || user.isSuperAdmin ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔')),
     };
 
     if (localStorage.getItem(TOKEN_KEY)) {
       localStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      localStorage.setItem('tito_current_user', JSON.stringify(normalized));
     } else {
       sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      sessionStorage.setItem('tito_current_user', JSON.stringify(normalized));
     }
 
     return normalized;
   } catch (err) {
     console.warn('[Auth] Error al verificar token en /api/auth/me:', err);
-    // En caso de fallo de red, retornar usuario en caché si existe
+    // En caso de fallo de red, retornar usuario en caché si es válido de Tito
     try {
       const cached = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
-      return cached ? JSON.parse(cached) : null;
+      if (!cached) return null;
+      const parsed = JSON.parse(cached);
+      if (!parsed || (!parsed.fullName && !parsed.name) || parsed.email?.includes('@gym.com')) {
+        logout();
+        return null;
+      }
+      if (!parsed.fullName && parsed.name) parsed.fullName = parsed.name;
+      return parsed;
     } catch {
       return null;
     }
@@ -147,9 +163,13 @@ export function logout() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem('tito_current_user');
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
   sessionStorage.removeItem('tito_current_user');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_user');
 }
 
 export const authService = {
