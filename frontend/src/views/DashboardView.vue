@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
+import SuperAdminDashboard from '../components/SuperAdminDashboard.vue';
 
 const props = defineProps({
   employeeSummary: {
@@ -21,10 +22,59 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  allServices: {
+    type: Array,
+    default: () => []
+  },
+  employees: {
+    type: Array,
+    default: () => []
+  },
+  users: {
+    type: Array,
+    default: () => []
+  },
+  serviceTypes: {
+    type: Array,
+    default: () => []
+  },
+  driverSummaries: {
+    type: Array,
+    default: () => []
+  },
+  currentUser: {
+    type: Object,
+    default: null
+  },
+  backendOnline: Boolean,
   loading: Boolean
 });
 
-defineEmits(['open-new-service', 'refresh']);
+const emit = defineEmits(['open-new-service', 'refresh', 'change-employee', 'change-tab']);
+
+const isSuperAdminOrAdmin = computed(() => {
+  return props.currentUser && (
+    props.currentUser.role === 'SuperAdmin' || 
+    props.currentUser.isSuperAdmin || 
+    props.currentUser.role === 'Administrador'
+  );
+});
+
+// Por defecto, si es SuperAdmin/Admin, arranca en la Visión Global de Flota; si es Chofer, en su panel de chofer
+const viewMode = ref(isSuperAdminOrAdmin.value ? 'global' : 'driver');
+
+watch(() => props.currentUser, (newVal) => {
+  if (newVal?.role === 'Chofer') {
+    viewMode.value = 'driver';
+  } else if (newVal?.role === 'SuperAdmin' || newVal?.isSuperAdmin) {
+    viewMode.value = 'global';
+  }
+}, { immediate: true });
+
+const onInspectDriver = (driverId) => {
+  emit('change-employee', driverId);
+  viewMode.value = 'driver';
+};
 
 const searchQuery = ref('');
 const activeFilter = ref('todos'); // 'todos' | 'hoy' | 'semana' | 'mes'
@@ -75,8 +125,53 @@ const formatDate = (dateStr) => {
 
 <template>
   <div class="dashboard-view">
-    <!-- Hero / Tarjeta de Bienvenida del Chofer -->
-    <div class="driver-hero glass-card">
+    <!-- Switcher de Modo de Vista (Solo SuperAdmin y Administrador) -->
+    <div v-if="isSuperAdminOrAdmin" class="view-mode-bar">
+      <div class="view-mode-pills">
+        <button 
+          :class="['mode-pill', { active: viewMode === 'global' }]"
+          @click="viewMode = 'global'"
+        >
+          <span class="pill-icon">👑</span>
+          <span class="pill-text">Visión Global de Flota & Dev</span>
+        </button>
+        <button 
+          :class="['mode-pill', { active: viewMode === 'driver' }]"
+          @click="viewMode = 'driver'"
+        >
+          <span class="pill-icon">🚐</span>
+          <span class="pill-text">Auditoría Individual: {{ employeeSummary.fullName }}</span>
+        </button>
+      </div>
+
+      <div class="view-mode-meta desktop-only">
+        <span class="meta-tag">
+          👤 Conectado: <strong>{{ currentUser?.fullName || 'SuperAdmin' }}</strong> ({{ currentUser?.role }})
+        </span>
+      </div>
+    </div>
+
+    <!-- Vista 1: Panel Global del SuperAdmin / Developer Command Center -->
+    <SuperAdminDashboard
+      v-if="isSuperAdminOrAdmin && viewMode === 'global'"
+      :currentUser="currentUser"
+      :employees="employees"
+      :users="users"
+      :allServices="allServices"
+      :serviceTypes="serviceTypes"
+      :driverSummaries="driverSummaries"
+      :backendOnline="backendOnline"
+      :loading="loading"
+      @open-new-service="$emit('open-new-service')"
+      @inspect-driver="onInspectDriver"
+      @change-tab="tab => $emit('change-tab', tab)"
+      @refresh="$emit('refresh')"
+    />
+
+    <!-- Vista 2: Panel Individual del Chofer (O Auditoría para SuperAdmin) -->
+    <div v-else class="driver-mode-container">
+      <!-- Hero / Tarjeta de Bienvenida del Chofer -->
+      <div class="driver-hero glass-card">
       <div class="hero-content">
         <div class="driver-avatar">
           <span class="avatar-icon">🚐</span>
@@ -308,6 +403,7 @@ const formatDate = (dateStr) => {
         </div>
       </div>
     </div>
+    </div>
   </div>
 </template>
 
@@ -315,7 +411,82 @@ const formatDate = (dateStr) => {
 .dashboard-view {
   display: flex;
   flex-direction: column;
+  gap: 20px;
+}
+
+/* Switcher de Modos de Vista */
+.view-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(18, 25, 20, 0.85);
+  border: 1px solid var(--brand-border);
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+}
+
+.view-mode-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--brand-border);
+}
+
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-pill:hover {
+  color: #ffffff;
+}
+
+.mode-pill.active {
+  background: var(--brand-green);
+  color: #ffffff;
+  box-shadow: 0 2px 12px rgba(34, 197, 94, 0.45);
+}
+
+.view-mode-meta .meta-tag {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.view-mode-meta strong {
+  color: #ffffff;
+}
+
+.driver-mode-container {
+  display: flex;
+  flex-direction: column;
   gap: 24px;
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Hero del Chofer */

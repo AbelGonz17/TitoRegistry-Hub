@@ -23,6 +23,8 @@ const employees = ref([]);
 const currentEmployeeId = ref(1);
 const employeeSummary = ref({});
 const services = ref([]);
+const allServices = ref([]);
+const driverSummaries = ref([]);
 const serviceTypes = ref([]);
 const users = ref([]);
 
@@ -172,13 +174,39 @@ const loadUsers = async () => {
   }
 };
 
+const loadFleetData = async () => {
+  if (currentUser.value?.role !== 'Chofer') {
+    try {
+      const [allSrv, usersList] = await Promise.all([
+        api.getAllServices().catch(() => []),
+        api.getUsers().catch(() => [])
+      ]);
+      allServices.value = allSrv || [];
+      if (usersList && usersList.length > 0) {
+        users.value = usersList;
+      }
+
+      const drivers = (users.value || []).filter(u => u.role === 'Chofer');
+      if (drivers.length > 0) {
+        const summaries = await Promise.all(
+          drivers.map(d => api.getEmployeeSummary(d.id).catch(() => null))
+        );
+        driverSummaries.value = summaries.filter(Boolean);
+      }
+    } catch (e) {
+      console.warn('Error al cargar datos globales de la flota:', e);
+    }
+  }
+};
+
 const refreshAll = async () => {
   await checkHealth();
   await Promise.all([
     loadEmployees(),
     loadEmployeeData(),
     loadCatalog(),
-    loadUsers()
+    loadUsers(),
+    loadFleetData()
   ]);
 };
 
@@ -379,9 +407,18 @@ const onDeleteUser = async (id) => {
           v-if="currentTab === 'dashboard'"
           :employeeSummary="employeeSummary"
           :services="services"
+          :allServices="allServices"
+          :employees="employees"
+          :users="users"
+          :serviceTypes="serviceTypes"
+          :driverSummaries="driverSummaries"
+          :currentUser="currentUser"
+          :backendOnline="backendOnline"
           :loading="loading"
           @open-new-service="showRegisterModal = true"
-          @refresh="loadEmployeeData"
+          @change-employee="onEmployeeChange"
+          @change-tab="onChangeTab"
+          @refresh="refreshAll"
         />
 
         <!-- Vista 2: Catálogo Dinámico de Rutas y Servicios -->
@@ -415,6 +452,7 @@ const onDeleteUser = async (id) => {
       @change-tab="onChangeTab"
       @open-new-service="showRegisterModal = true"
       @open-auth="openAuthModal"
+      @logout="onLogout"
       @refresh="refreshAll"
     />
 

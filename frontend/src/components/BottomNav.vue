@@ -7,7 +7,7 @@ defineProps({
   }
 });
 
-defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
+defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth', 'logout']);
 </script>
 
 <template>
@@ -50,14 +50,25 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
         <span class="label">Personal</span>
       </button>
 
-      <!-- 5. Perfil / Login en móvil -->
+      <!-- 5. Botón de Salir (si está logueado) o Ingresar (si no hay sesión) -->
       <button 
-        class="bottom-nav-btn"
-        @click="$emit('open-auth', currentUser ? 'profile' : 'login')"
-        :title="currentUser ? (currentUser.fullName || currentUser.name || currentUser.email || 'Usuario') : 'Iniciar Sesión / Registrarse'"
+        v-if="currentUser"
+        class="bottom-nav-btn logout-btn"
+        @click="$emit('logout')"
+        :title="`Cerrar Sesión (${currentUser.fullName || 'Usuario'})`"
       >
-        <span class="icon">{{ currentUser ? (currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑')) : '👤' }}</span>
-        <span class="label">{{ currentUser ? (((currentUser.fullName || currentUser.name || currentUser.email || 'Usuario').split(' ')[0])) : 'Ingresar' }}</span>
+        <span class="icon">🚪</span>
+        <span class="label">Salir</span>
+      </button>
+
+      <button 
+        v-else
+        class="bottom-nav-btn login-btn"
+        @click="$emit('open-auth', 'login')"
+        title="Iniciar Sesión"
+      >
+        <span class="icon">🔑</span>
+        <span class="label">Ingresar</span>
       </button>
     </div>
   </div>
@@ -112,6 +123,20 @@ defineEmits(['change-tab', 'open-new-service', 'refresh', 'open-auth']);
 }
 
 .bottom-nav-btn.active {
+  color: var(--brand-green-light);
+}
+
+.bottom-nav-btn.logout-btn {
+  color: #f87171;
+}
+
+.bottom-nav-btn.logout-btn:hover,
+.bottom-nav-btn.logout-btn:active {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.bottom-nav-btn.login-btn {
   color: var(--brand-green-light);
 }
 

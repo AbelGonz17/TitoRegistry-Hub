@@ -104,6 +104,16 @@ const showUserMenu = ref(false);
             <span class="dropdown-chevron">▾</span>
           </div>
 
+          <!-- Botón Rápido de Salir / Logout -->
+          <button 
+            class="btn-nav-exit" 
+            @click="$emit('logout')" 
+            :title="`Cerrar Sesión (${currentUser.fullName || 'Usuario'})`"
+          >
+            <span class="exit-icon">🚪</span>
+            <span class="exit-label desktop-only">Salir</span>
+          </button>
+
           <!-- Menú desplegable del usuario -->
           <div v-if="showUserMenu" class="user-dropdown-menu" @click="showUserMenu = false">
             <div class="dropdown-header">
@@ -314,9 +324,34 @@ const showUserMenu = ref(false);
   font-size: 0.8rem;
 }
 
-/* Perfil de Usuario */
 .user-profile-wrapper {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-nav-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-family: var(--font-heading);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-nav-exit:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  border-color: #ef4444;
+  transform: translateY(-1px);
 }
 
 .user-chip {

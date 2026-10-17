@@ -103,6 +103,15 @@ export const api = {
   },
 
   // Servicios de Transporte Realizados (/api/services)
+  getAllServices: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.from) query.append('from', params.from);
+    if (params.to) query.append('to', params.to);
+    if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    return request(`/services${queryString}`);
+  },
   getServicesByEmployee: (employeeId, params = {}) => {
     const query = new URLSearchParams();
     if (employeeId) query.append('driverId', employeeId);
