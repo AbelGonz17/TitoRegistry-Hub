@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Domain.Entities;
+using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Application.Services;
 
@@ -47,15 +48,14 @@ public class UserService : IUserService
             throw new InvalidOperationException($"Ya existe un usuario registrado con el correo {cleanEmail}.");
 
         // Generar correlativo (ADM-00X o CHO-00X)
-        bool isDriver = dto.Role.Equals("Chofer", StringComparison.OrdinalIgnoreCase) ||
-                        dto.Role.Equals("Conductor", StringComparison.OrdinalIgnoreCase);
+        var userRole = ParseRole(dto.Role);
+        bool isDriver = userRole == UserRole.Chofer;
 
         string prefix = isDriver ? "CHO" : "ADM";
-        int count = await _context.Users.CountAsync(u => u.Role == dto.Role, cancellationToken);
+        int count = await _context.Users.CountAsync(u => u.Role == userRole, cancellationToken);
         string code = $"{prefix}-{(count + 1):D3}";
 
         string passwordHash = _passwordHasher.HashPassword(dto.Password);
-        bool isSuperAdmin = dto.Role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase);
 
         var user = new User(
             code: code,
@@ -63,14 +63,9 @@ public class UserService : IUserService
             email: cleanEmail,
             passwordHash: passwordHash,
             phone: dto.Phone,
-            role: dto.Role,
+            role: userRole,
             department: dto.Department,
-            commissionRate: dto.CommissionRate,
-            isSuperAdmin: isSuperAdmin,
-            avatar: string.IsNullOrWhiteSpace(dto.Avatar) ? (isDriver ? "🚗" : "💼") : dto.Avatar,
-            defaultPhoneIncentive: dto.DefaultPhoneIncentive,
-            defaultIsr: dto.DefaultIsr,
-            defaultTss: dto.DefaultTss
+            commissionRate: dto.CommissionRate
         );
 
         _context.Users.Add(user);
@@ -87,17 +82,15 @@ public class UserService : IUserService
         if (user == null)
             throw new KeyNotFoundException($"No se encontró ningún usuario con Id {id}.");
 
+        var userRole = ParseRole(dto.Role);
+
         user.UpdateProfile(
             fullName: dto.FullName,
             phone: dto.Phone,
-            role: dto.Role,
+            role: userRole,
             department: dto.Department,
             commissionRate: dto.CommissionRate,
-            isActive: dto.IsActive,
-            avatar: dto.Avatar,
-            defaultPhoneIncentive: dto.DefaultPhoneIncentive,
-            defaultIsr: dto.DefaultIsr,
-            defaultTss: dto.DefaultTss
+            isActive: dto.IsActive
         );
 
         if (!string.IsNullOrWhiteSpace(dto.Password))
@@ -123,6 +116,17 @@ public class UserService : IUserService
         return true;
     }
 
+    private static UserRole ParseRole(string role)
+    {
+        if (Enum.TryParse<UserRole>(role, true, out var parsed))
+            return parsed;
+
+        if (role.Equals("Conductor", StringComparison.OrdinalIgnoreCase))
+            return UserRole.Chofer;
+
+        return UserRole.Chofer;
+    }
+
     private static UserDto MapToDto(User user) => new()
     {
         Id = user.Id,
@@ -130,15 +134,11 @@ public class UserService : IUserService
         FullName = user.FullName,
         Email = user.Email,
         Phone = user.Phone,
-        Role = user.Role,
+        Role = user.Role.ToString(),
         Department = user.Department,
         CommissionRate = user.CommissionRate,
-        DefaultPhoneIncentive = user.DefaultPhoneIncentive,
-        DefaultIsr = user.DefaultIsr,
-        DefaultTss = user.DefaultTss,
         IsActive = user.IsActive,
-        IsSuperAdmin = user.IsSuperAdmin,
-        Avatar = user.Avatar,
+        IsSuperAdmin = user.Role == UserRole.SuperAdmin,
         CreatedAt = user.CreatedAt
     };
 }

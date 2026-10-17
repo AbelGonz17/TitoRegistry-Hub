@@ -1,10 +1,11 @@
 using TitoRegistry.Domain.Common;
+using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Domain.Entities;
 
 /// <summary>
 /// Entidad de dominio que representa a un usuario del sistema (SuperAdmin, Administrador o Chofer).
-/// Cuenta con credenciales de autenticación segura, datos operativos para liquidación y soporte para Soft Delete.
+/// Cuenta con credenciales de autenticación segura, rol tipado y datos operativos básicos.
 /// </summary>
 public class User : BaseEntity
 {
@@ -13,17 +14,10 @@ public class User : BaseEntity
     public string Email { get; private set; } = string.Empty;
     public string PasswordHash { get; private set; } = string.Empty;
     public string Phone { get; private set; } = string.Empty;
-    public string Role { get; private set; } = "Chofer"; // SuperAdmin, Administrador, Chofer
+    public UserRole Role { get; private set; } = UserRole.Chofer;
     public string Department { get; private set; } = "Operaciones";
     public decimal CommissionRate { get; private set; } = 25.0m;
     public bool IsActive { get; private set; } = true;
-    public bool IsSuperAdmin { get; private set; } = false;
-    public string Avatar { get; private set; } = string.Empty;
-
-    // Valores predeterminados para la liquidación mensual de choferes (planilla)
-    public decimal DefaultPhoneIncentive { get; private set; } = 1000.0m;
-    public decimal DefaultIsr { get; private set; } = 873.0m;
-    public decimal DefaultTss { get; private set; } = 1088.69m;
 
     // Relaciones de navegación
     private readonly List<ServiceRecord> _serviceRecords = new();
@@ -31,6 +25,12 @@ public class User : BaseEntity
 
     private readonly List<DriverSettlement> _settlements = new();
     public virtual IReadOnlyCollection<DriverSettlement> Settlements => _settlements.AsReadOnly();
+
+    private readonly List<DriverBenefit> _driverBenefits = new();
+    public virtual IReadOnlyCollection<DriverBenefit> DriverBenefits => _driverBenefits.AsReadOnly();
+
+    // Configuración fiscal y de retenciones legales (TSS e ISR)
+    public virtual DriverPayrollConfig? PayrollConfig { get; private set; }
 
     // Constructor privado para EF Core
     private User() { }
@@ -41,14 +41,9 @@ public class User : BaseEntity
         string email,
         string passwordHash,
         string phone,
-        string role,
+        UserRole role,
         string department,
-        decimal commissionRate,
-        bool isSuperAdmin = false,
-        string avatar = "",
-        decimal defaultPhoneIncentive = 1000.0m,
-        decimal defaultIsr = 873.0m,
-        decimal defaultTss = 1088.69m)
+        decimal commissionRate)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("El nombre del usuario es obligatorio.", nameof(fullName));
@@ -64,14 +59,9 @@ public class User : BaseEntity
         Email = email.Trim().ToLowerInvariant();
         PasswordHash = passwordHash;
         Phone = phone?.Trim() ?? string.Empty;
-        Role = string.IsNullOrWhiteSpace(role) ? "Chofer" : role.Trim();
+        Role = role;
         Department = string.IsNullOrWhiteSpace(department) ? "Operaciones" : department.Trim();
         CommissionRate = commissionRate < 0 ? 0 : commissionRate;
-        IsSuperAdmin = isSuperAdmin || Role.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase);
-        Avatar = avatar?.Trim() ?? string.Empty;
-        DefaultPhoneIncentive = defaultPhoneIncentive;
-        DefaultIsr = defaultIsr;
-        DefaultTss = defaultTss;
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
     }
@@ -94,36 +84,54 @@ public class User : BaseEntity
     public void UpdateProfile(
         string fullName,
         string phone,
-        string role,
+        UserRole role,
         string department,
         decimal commissionRate,
-        bool isActive,
-        string avatar = "",
-        decimal? defaultPhoneIncentive = null,
-        decimal? defaultIsr = null,
-        decimal? defaultTss = null)
+        bool isActive)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("El nombre del usuario es obligatorio.", nameof(fullName));
 
         FullName = fullName.Trim();
         Phone = phone?.Trim() ?? string.Empty;
-        Role = string.IsNullOrWhiteSpace(role) ? Role : role.Trim();
+        Role = role;
         Department = string.IsNullOrWhiteSpace(department) ? Department : department.Trim();
         CommissionRate = commissionRate < 0 ? 0 : commissionRate;
         IsActive = isActive;
-        if (!string.IsNullOrWhiteSpace(avatar))
-        {
-            Avatar = avatar.Trim();
-        }
-        if (defaultPhoneIncentive.HasValue)
-            DefaultPhoneIncentive = defaultPhoneIncentive.Value;
-        if (defaultIsr.HasValue)
-            DefaultIsr = defaultIsr.Value;
-        if (defaultTss.HasValue)
-            DefaultTss = defaultTss.Value;
-
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Asigna o actualiza un beneficio recurrente para este chofer.
+    /// </summary>
+    public void AssignBenefit(Benefit benefit, decimal? customAmount = null, string notes = "")
+    {
+        ArgumentNullException.ThrowIfNull(benefit);
+        var amount = customAmount ?? benefit.DefaultAmount;
+        var existing = _driverBenefits.FirstOrDefault(b => b.BenefitId == benefit.Id);
+        if (existing != null)
+        {
+            existing.UpdateAmount(amount, notes);
+            existing.Activate();
+        }
+        else
+        {
+            _driverBenefits.Add(new DriverBenefit(Id, benefit.Id, amount, true, notes));
+        }
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Desactiva un beneficio asignado a este chofer.
+    /// </summary>
+    public void RemoveBenefit(int benefitId)
+    {
+        var existing = _driverBenefits.FirstOrDefault(b => b.BenefitId == benefitId);
+        if (existing != null)
+        {
+            existing.Deactivate();
+            UpdatedAt = DateTime.UtcNow;
+        }
     }
 
     /// <summary>

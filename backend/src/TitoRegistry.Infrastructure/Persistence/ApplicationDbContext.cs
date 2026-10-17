@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Domain.Entities;
+using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Infrastructure.Persistence;
 
@@ -14,6 +15,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<ServiceType> ServiceTypes => Set<ServiceType>();
     public DbSet<ServiceRecord> ServiceRecords => Set<ServiceRecord>();
     public DbSet<DriverSettlement> DriverSettlements => Set<DriverSettlement>();
+    public DbSet<Benefit> Benefits => Set<Benefit>();
+    public DbSet<DriverBenefit> DriverBenefits => Set<DriverBenefit>();
+    public DbSet<SettlementAdjustment> SettlementAdjustments => Set<SettlementAdjustment>();
+    public DbSet<DriverPayrollConfig> DriverPayrollConfigs => Set<DriverPayrollConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +29,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         modelBuilder.Entity<ServiceType>().HasQueryFilter(s => !s.IsDeleted);
         modelBuilder.Entity<ServiceRecord>().HasQueryFilter(s => !s.IsDeleted);
         modelBuilder.Entity<DriverSettlement>().HasQueryFilter(d => !d.IsDeleted);
+        modelBuilder.Entity<Benefit>().HasQueryFilter(b => !b.IsDeleted);
+        modelBuilder.Entity<DriverBenefit>().HasQueryFilter(db => !db.IsDeleted);
+        modelBuilder.Entity<SettlementAdjustment>().HasQueryFilter(sa => !sa.IsDeleted);
+        modelBuilder.Entity<DriverPayrollConfig>().HasQueryFilter(p => !p.IsDeleted);
 
         // Configuración de Usuarios (SuperAdmin, Administradores y Choferes)
         modelBuilder.Entity<User>(entity =>
@@ -38,13 +47,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(u => u.FullName).IsRequired().HasMaxLength(150);
             entity.Property(u => u.PasswordHash).IsRequired().HasMaxLength(255);
             entity.Property(u => u.Phone).HasMaxLength(50);
-            entity.Property(u => u.Role).IsRequired().HasMaxLength(50);
+            entity.Property(u => u.Role).HasConversion<string>().HasMaxLength(50);
             entity.Property(u => u.Department).HasMaxLength(100);
             entity.Property(u => u.CommissionRate).HasPrecision(5, 2);
-            entity.Property(u => u.DefaultPhoneIncentive).HasPrecision(18, 2);
-            entity.Property(u => u.DefaultIsr).HasPrecision(18, 2);
-            entity.Property(u => u.DefaultTss).HasPrecision(18, 2);
-            entity.Property(u => u.Avatar).HasMaxLength(100);
 
             entity.HasMany(u => u.ServiceRecords)
                   .WithOne(s => s.Driver)
@@ -112,6 +117,83 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasIndex(d => new { d.DriverId, d.Year, d.Month }).IsUnique();
         });
 
+        // Configuración de Beneficios y Ajustes (Catálogo Dinámico de la Empresa)
+        modelBuilder.Entity<Benefit>(entity =>
+        {
+            entity.HasKey(b => b.Id);
+            entity.Property(b => b.Code).IsRequired().HasMaxLength(50);
+            entity.HasIndex(b => b.Code).IsUnique();
+
+            entity.Property(b => b.Name).IsRequired().HasMaxLength(150);
+            entity.Property(b => b.Category).HasMaxLength(100);
+            entity.Property(b => b.Description).HasMaxLength(500);
+            entity.Property(b => b.Type).HasConversion<int>();
+            entity.Property(b => b.DefaultAmount).HasPrecision(18, 2);
+
+            entity.HasMany(b => b.DriverBenefits)
+                  .WithOne(db => db.Benefit)
+                  .HasForeignKey(db => db.BenefitId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // Configuración de Beneficios Asignados al Chofer
+        modelBuilder.Entity<DriverBenefit>(entity =>
+        {
+            entity.HasKey(db => db.Id);
+            entity.Property(db => db.CustomAmount).HasPrecision(18, 2);
+            entity.Property(db => db.Notes).HasMaxLength(500);
+
+            entity.HasOne(db => db.Driver)
+                  .WithMany(u => u.DriverBenefits)
+                  .HasForeignKey(db => db.DriverId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(db => db.Benefit)
+                  .WithMany(b => b.DriverBenefits)
+                  .HasForeignKey(db => db.BenefitId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(db => new { db.DriverId, db.BenefitId }).IsUnique();
+        });
+
+        // Configuración de Partidas de Ajuste en la Liquidación
+        modelBuilder.Entity<SettlementAdjustment>(entity =>
+        {
+            entity.HasKey(sa => sa.Id);
+            entity.Property(sa => sa.Concept).IsRequired().HasMaxLength(150);
+            entity.Property(sa => sa.Category).HasMaxLength(100);
+            entity.Property(sa => sa.Amount).HasPrecision(18, 2);
+            entity.Property(sa => sa.Type).HasConversion<int>();
+            entity.Property(sa => sa.Notes).HasMaxLength(500);
+
+            entity.HasOne(sa => sa.DriverSettlement)
+                  .WithMany(ds => ds.Adjustments)
+                  .HasForeignKey(sa => sa.DriverSettlementId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(sa => sa.Benefit)
+                  .WithMany()
+                  .HasForeignKey(sa => sa.BenefitId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Configuración de Perfil Fiscal y Nómina de Choferes (TSS e ISR - Opción A)
+        modelBuilder.Entity<DriverPayrollConfig>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.ReportedSalary).HasPrecision(18, 2);
+            entity.Property(p => p.FixedTssAmount).HasPrecision(18, 2);
+            entity.Property(p => p.FixedIsrAmount).HasPrecision(18, 2);
+            entity.Property(p => p.Notes).HasMaxLength(500);
+
+            entity.HasOne(p => p.Driver)
+                  .WithOne(u => u.PayrollConfig)
+                  .HasForeignKey<DriverPayrollConfig>(p => p.DriverId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(p => p.DriverId).IsUnique();
+        });
+
         SeedInitialData(modelBuilder);
     }
 
@@ -126,15 +208,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Email = "admin@titotransporte.com",
             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a", // Password: Admin123!
             Phone = "+1 (809) 555-0100",
-            Role = "SuperAdmin",
+            Role = UserRole.SuperAdmin,
             Department = "Dirección General & Propietario",
             CommissionRate = 0m,
-            DefaultPhoneIncentive = 0m,
-            DefaultIsr = 0m,
-            DefaultTss = 0m,
             IsActive = true,
-            IsSuperAdmin = true,
-            Avatar = "",
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -150,15 +227,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Email = "browel@titotransporte.com",
             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
             Phone = "+1 (809) 555-0101",
-            Role = "Chofer",
+            Role = UserRole.Chofer,
             Department = "Transporte Urbano e Interurbano",
             CommissionRate = 25.0m,
-            DefaultPhoneIncentive = 1000.0m,
-            DefaultIsr = 873.0m,
-            DefaultTss = 1088.69m,
             IsActive = true,
-            IsSuperAdmin = false,
-            Avatar = "",
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
@@ -173,15 +245,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Email = "denny@titotransporte.com",
             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
             Phone = "+1 (809) 555-0102",
-            Role = "Chofer",
+            Role = UserRole.Chofer,
             Department = "Rutas Fijas Corporativas",
             CommissionRate = 25.0m,
-            DefaultPhoneIncentive = 1000.0m,
-            DefaultIsr = 873.0m,
-            DefaultTss = 1088.69m,
             IsActive = true,
-            IsSuperAdmin = false,
-            Avatar = "",
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),
@@ -248,6 +315,92 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         };
 
         modelBuilder.Entity<ServiceType>().HasData(type1, type2, type3, type4);
+
+        // 4. Beneficio predeterminado: Incentivo de Teléfono (Flota)
+        var phoneBenefit = new
+        {
+            Id = 1,
+            Code = "BEN-TEL",
+            Name = "Incentivo Teléfono",
+            Category = "Flota",
+            Description = "Incentivo mensual por disponibilidad y uso de teléfono móvil corporativo",
+            Type = BenefitType.Incentive,
+            DefaultAmount = 1000m,
+            IsRecurring = true,
+            IsActive = true,
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<Benefit>().HasData(phoneBenefit);
+
+        // 5. Asignación del incentivo a los choferes iniciales Browel y Denny
+        var driverBenefitBrowel = new
+        {
+            Id = 1,
+            DriverId = 2,
+            BenefitId = 1,
+            CustomAmount = 1000m,
+            IsActive = true,
+            Notes = "Incentivo mensual estándar de flota",
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        var driverBenefitDenny = new
+        {
+            Id = 2,
+            DriverId = 3,
+            BenefitId = 1,
+            CustomAmount = 1000m,
+            IsActive = true,
+            Notes = "Incentivo mensual estándar de flota",
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<DriverBenefit>().HasData(driverBenefitBrowel, driverBenefitDenny);
+
+        // 6. Configuración de retenciones de ley (TSS e ISR) para choferes Browel y Denny (Opción A)
+        var payrollConfigBrowel = new
+        {
+            Id = 1,
+            DriverId = 2,
+            ReportedSalary = 18421.15m,
+            FixedTssAmount = 1088.69m,
+            FixedIsrAmount = 873.00m,
+            IsExemptTss = false,
+            IsExemptIsr = false,
+            Notes = "Salario cotizable base SUIR TSS RD$ 18,421.15 y retención ISR",
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        var payrollConfigDenny = new
+        {
+            Id = 2,
+            DriverId = 3,
+            ReportedSalary = 18421.15m,
+            FixedTssAmount = 1088.69m,
+            FixedIsrAmount = 873.00m,
+            IsExemptTss = false,
+            IsExemptIsr = false,
+            Notes = "Salario cotizable base SUIR TSS RD$ 18,421.15 y retención ISR",
+            IsDeleted = false,
+            DeletedAt = (DateTime?)null,
+            CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),
+            UpdatedAt = (DateTime?)null
+        };
+
+        modelBuilder.Entity<DriverPayrollConfig>().HasData(payrollConfigBrowel, payrollConfigDenny);
     }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

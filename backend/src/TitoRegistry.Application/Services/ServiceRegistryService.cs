@@ -198,12 +198,29 @@ public class ServiceRegistryService : IServiceRegistryService
 
         decimal grossTotal = services.Sum(s => s.PriceCharged);
 
-        // Parámetros de cálculo (usar personalizados o los configurados en el chofer / sistema)
+        // Cargar beneficios asignados al chofer (ej: Incentivo Teléfono)
+        var assignedBenefits = await _context.DriverBenefits
+            .AsNoTracking()
+            .Include(db => db.Benefit)
+            .Where(db => db.DriverId == driverId && db.IsActive && !db.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        decimal phoneBenefitAmount = assignedBenefits
+            .FirstOrDefault(b => b.Benefit != null && (b.Benefit.Code == "BEN-TEL" || b.Benefit.Name.Contains("Teléfono", StringComparison.OrdinalIgnoreCase)))?.CustomAmount ?? 1000.0m;
+
+        // Cargar configuración de nómina y retenciones de ley del chofer (TSS e ISR - Opción A)
+        var payrollConfig = await _context.DriverPayrollConfigs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.DriverId == driverId && !p.IsDeleted, cancellationToken);
+
+        decimal defaultIsr = payrollConfig != null ? payrollConfig.GetEffectiveIsr() : 873.0m;
+        decimal defaultTss = payrollConfig != null ? payrollConfig.GetEffectiveTss() : 1088.69m;
+
         decimal companyRetentionRate = customCompanyRetentionRate ?? 30.0m;
         decimal driverCommissionRate = customDriverCommissionRate ?? driver.CommissionRate;
-        decimal isr = customIsr ?? driver.DefaultIsr;
-        decimal tss = customTss ?? driver.DefaultTss;
-        decimal phoneIncentive = customPhoneIncentive ?? driver.DefaultPhoneIncentive;
+        decimal isr = customIsr ?? defaultIsr;
+        decimal tss = customTss ?? defaultTss;
+        decimal phoneIncentive = customPhoneIncentive ?? phoneBenefitAmount;
 
         // FÓRMULA OFICIAL DE TRANSPORTE TITO:
         // 1. Retención 30%

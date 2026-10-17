@@ -45,11 +45,9 @@ public class AuthService : IAuthService
                     email: cleanEmail,
                     passwordHash: passwordHash,
                     phone: "",
-                    role: "SuperAdmin",
+                    role: TitoRegistry.Domain.Enums.UserRole.SuperAdmin,
                     department: "Dirección General & Propietario",
-                    commissionRate: 0,
-                    isSuperAdmin: true,
-                    avatar: "👑"
+                    commissionRate: 0
                 );
 
                 _context.Users.Add(user);
@@ -98,12 +96,11 @@ public class AuthService : IAuthService
         FullName = user.FullName,
         Email = user.Email,
         Phone = user.Phone,
-        Role = user.Role,
+        Role = user.Role.ToString(),
         Department = user.Department,
         CommissionRate = user.CommissionRate,
         IsActive = user.IsActive,
-        IsSuperAdmin = user.IsSuperAdmin,
-        Avatar = user.Avatar,
+        IsSuperAdmin = user.Role == TitoRegistry.Domain.Enums.UserRole.SuperAdmin,
         CreatedAt = user.CreatedAt
     };
 }

@@ -13,6 +13,10 @@ public interface IApplicationDbContext
     DbSet<ServiceType> ServiceTypes { get; }
     DbSet<ServiceRecord> ServiceRecords { get; }
     DbSet<DriverSettlement> DriverSettlements { get; }
+    DbSet<Benefit> Benefits { get; }
+    DbSet<DriverBenefit> DriverBenefits { get; }
+    DbSet<SettlementAdjustment> SettlementAdjustments { get; }
+    DbSet<DriverPayrollConfig> DriverPayrollConfigs { get; }
 
     DatabaseFacade Database { get; }
 

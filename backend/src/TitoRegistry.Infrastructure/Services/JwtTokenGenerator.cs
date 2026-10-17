@@ -34,9 +34,9 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Name, user.FullName),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(ClaimTypes.Role, user.Role),
+            new(ClaimTypes.Role, user.Role.ToString()),
             new("code", user.Code),
-            new("isSuperAdmin", user.IsSuperAdmin.ToString().ToLowerInvariant()),
+            new("isSuperAdmin", (user.Role == TitoRegistry.Domain.Enums.UserRole.SuperAdmin).ToString().ToLowerInvariant()),
             new("commissionRate", user.CommissionRate.ToString())
         };
 

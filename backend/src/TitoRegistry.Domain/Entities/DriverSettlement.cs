@@ -1,11 +1,12 @@
 using TitoRegistry.Domain.Common;
+using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Domain.Entities;
 
 /// <summary>
 /// Entidad de dominio que representa la liquidación o planilla mensual de un chofer.
 /// Contiene el desglose exacto de servicios brutos, retención operativa (30%),
-/// comisión del chofer (ej: 25%), deducciones fiscales (ISR, TSS) e incentivos de flota.
+/// comisión del chofer (ej: 25%), deducciones fiscales (ISR, TSS) y ajustes dinámicos (beneficios/incentivos/deducciones).
 /// </summary>
 public class DriverSettlement : BaseEntity
 {
@@ -33,7 +34,7 @@ public class DriverSettlement : BaseEntity
     public decimal IsrDeduction { get; private set; } // Impuesto Sobre la Renta (RD)
     public decimal TssDeduction { get; private set; } // Tesorería de la Seguridad Social (RD)
 
-    // Incentivos y bonificaciones
+    // Incentivos y bonificaciones (compatibilidad retroactiva y resumen)
     public decimal PhoneIncentive { get; private set; } = 1000.0m;
     public decimal OtherIncentives { get; private set; }
     public decimal OtherDeductions { get; private set; }
@@ -44,6 +45,10 @@ public class DriverSettlement : BaseEntity
     public string Status { get; private set; } = "Borrador"; // Borrador, Aprobado, Pagado
     public string Notes { get; private set; } = string.Empty;
     public DateTime? PaidAt { get; private set; }
+
+    // Desglose de partidas de ajustes dinámicos (beneficios, bonos, deducciones)
+    private readonly List<SettlementAdjustment> _adjustments = new();
+    public virtual IReadOnlyCollection<SettlementAdjustment> Adjustments => _adjustments.AsReadOnly();
 
     // Constructor privado para EF Core
     private DriverSettlement() { }
@@ -90,11 +95,37 @@ public class DriverSettlement : BaseEntity
     }
 
     /// <summary>
+    /// Agrega una partida de ajuste dinámico (beneficio, bono, incentivo o deducción) a la liquidación.
+    /// </summary>
+    public void AddAdjustment(string concept, decimal amount, BenefitType type, int? benefitId = null, string category = "General", string notes = "")
+    {
+        var adjustment = new SettlementAdjustment(Id, concept, amount, type, benefitId, category, notes);
+        _adjustments.Add(adjustment);
+
+        // Si es el incentivo de teléfono tradicional, actualizamos la propiedad resumen
+        if (concept.Contains("Teléfono", StringComparison.OrdinalIgnoreCase) || concept.Contains("Telefono", StringComparison.OrdinalIgnoreCase))
+        {
+            PhoneIncentive = amount;
+        }
+
+        Recalculate(TotalGrossAmount);
+    }
+
+    /// <summary>
+    /// Limpia las partidas de ajuste para recálculo completo.
+    /// </summary>
+    public void ClearAdjustments()
+    {
+        _adjustments.Clear();
+        Recalculate(TotalGrossAmount);
+    }
+
+    /// <summary>
     /// Ejecuta la fórmula matemática oficial de planilla:
     /// 1. Retención Empresa = Bruto * (30 / 100)
     /// 2. Subtotal Operativo = Bruto - Retención Empresa
     /// 3. Comisión Chofer = Subtotal Operativo * (25 / 100)
-    /// 4. Total a Pagar = Comisión - ISR - TSS + Incentivo Teléfono + Otros Incentivos - Otras Deducciones
+    /// 4. Total a Pagar = Comisión - ISR - TSS + Total Beneficios e Incentivos - Total Deducciones
     /// </summary>
     public void Recalculate(decimal grossAmount)
     {
@@ -105,11 +136,28 @@ public class DriverSettlement : BaseEntity
 
         CommissionAmount = Math.Round(OperationalSubTotal * (DriverCommissionRate / 100m), 2, MidpointRounding.AwayFromZero);
 
-        TotalNetPayable = Math.Round(
-            CommissionAmount - IsrDeduction - TssDeduction + PhoneIncentive + OtherIncentives - OtherDeductions,
-            2,
-            MidpointRounding.AwayFromZero
-        );
+        decimal dynamicIncentives = 0m;
+        decimal dynamicDeductions = 0m;
+
+        if (_adjustments.Count > 0)
+        {
+            dynamicIncentives = _adjustments.Where(a => a.Type == BenefitType.Incentive).Sum(a => a.Amount);
+            dynamicDeductions = _adjustments.Where(a => a.Type == BenefitType.Deduction).Sum(a => a.Amount);
+
+            TotalNetPayable = Math.Round(
+                CommissionAmount - IsrDeduction - TssDeduction + dynamicIncentives - dynamicDeductions,
+                2,
+                MidpointRounding.AwayFromZero
+            );
+        }
+        else
+        {
+            TotalNetPayable = Math.Round(
+                CommissionAmount - IsrDeduction - TssDeduction + PhoneIncentive + OtherIncentives - OtherDeductions,
+                2,
+                MidpointRounding.AwayFromZero
+            );
+        }
 
         UpdatedAt = DateTime.UtcNow;
     }
