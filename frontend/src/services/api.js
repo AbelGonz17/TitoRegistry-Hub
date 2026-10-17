@@ -68,22 +68,60 @@ export const api = {
     method: 'DELETE',
   }),
 
-  // Empleados / Choferes (legacy / vista rápida)
-  getEmployees: () => request('/employees'),
-  getEmployeeSummary: (id) => request(`/employees/${id}/summary`),
+  // Empleados / Choferes (integrado con /api/users)
+  getEmployees: async () => {
+    const users = await request('/users');
+    const drivers = (users || []).filter(u => u.role === 'Chofer');
+    return drivers.length > 0 ? drivers : users;
+  },
+  getEmployeeSummary: async (id) => {
+    const now = new Date();
+    try {
+      const settlement = await request(`/settlements/calculate?driverId=${id}&month=${now.getMonth() + 1}&year=${now.getFullYear()}`);
+      return {
+        id: settlement.driverId,
+        code: settlement.driverCode,
+        fullName: settlement.driverName,
+        role: 'Chofer',
+        department: 'Operaciones',
+        commissionRate: settlement.driverCommissionRate,
+        totalEarningsAccumulated: settlement.totalNetPayable,
+        totalServicesCompleted: settlement.services?.length || 0,
+        totalBilled: settlement.totalGrossAmount,
+        averageEarningsPerService: settlement.services?.length > 0 
+          ? Math.round(settlement.totalGrossAmount / settlement.services.length) 
+          : 0,
+        recentServices: settlement.services || []
+      };
+    } catch {
+      return null;
+    }
+  },
 
-  // Servicios de Transporte Realizados
+  // Servicios de Transporte Realizados (/api/services)
   getServicesByEmployee: (employeeId, params = {}) => {
     const query = new URLSearchParams();
+    if (employeeId) query.append('driverId', employeeId);
     if (params.from) query.append('from', params.from);
     if (params.to) query.append('to', params.to);
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    return request(`/services/employee/${employeeId}${queryString}`);
+    return request(`/services${queryString}`);
   },
-  registerService: (payload) => request('/services', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  }),
+  registerService: (payload) => {
+    const body = {
+      driverId: payload.driverId || payload.employeeId,
+      serviceTypeId: payload.serviceTypeId,
+      clientReference: payload.clientReference || payload.clientName,
+      description: payload.description || payload.clientAddress || `Servicio realizado para ${payload.clientName || 'cliente'}`,
+      serviceDate: payload.serviceDate || new Date().toISOString(),
+      priceCharged: Number(payload.priceCharged),
+      notes: payload.notes || ''
+    };
+    return request('/services', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
 
   // Catálogo Dinámico de Servicios (CRUD)
   getServiceTypes: () => request('/servicetypes'),
