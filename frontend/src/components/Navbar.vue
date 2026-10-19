@@ -119,26 +119,16 @@ const currentSectionInfo = computed(() => {
         </button>
       </nav>
 
-      <!-- Selector de Chofer y Acciones -->
+      <!-- Acciones de la barra superior -->
       <div class="flex items-center gap-3">
-        <!-- Indicador de conexión con el Servidor -->
-        <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-brand-black/40 border border-brand-border text-xs" :title="backendOnline ? 'Servidor .NET Conectado' : 'Sin conexión al servidor'">
+        <!-- Indicador de conexión con el Servidor (Solo visible para Administradores) -->
+        <div 
+          v-if="isAdmin" 
+          class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-brand-black/40 border border-brand-border text-xs select-none cursor-default pointer-events-none" 
+          :title="backendOnline ? 'Servidor .NET Conectado' : 'Sin conexión al servidor'"
+        >
           <span :class="['w-2 h-2 rounded-full transition-all', backendOnline ? 'bg-brand-green-light shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500']"></span>
           <span class="hidden md:inline text-slate-400 font-medium">{{ backendOnline ? 'API Conectada' : 'Offline' }}</span>
-        </div>
-
-        <!-- Selector de Chofer Activo (Solo para Choferes) -->
-        <div v-if="!isAdmin" class="hidden md:flex items-center gap-2 text-xs">
-          <label class="font-bold text-slate-400 uppercase tracking-wider">Chofer Activo:</label>
-          <select 
-            class="px-3 py-1.5 bg-brand-black border border-brand-border rounded-xl text-white font-medium outline-none focus:border-brand-green-light cursor-pointer" 
-            :value="currentEmployeeId" 
-            @change="$emit('change-employee', Number($event.target.value))"
-          >
-            <option v-for="emp in employees" :key="emp.id" :value="emp.id">
-              {{ emp.fullName }} ({{ emp.code }} - {{ emp.commissionRate }}%)
-            </option>
-          </select>
         </div>
 
         <!-- Botón de acción rápida: Registrar Viaje (Solo para Choferes) -->
