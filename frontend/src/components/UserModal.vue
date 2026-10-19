@@ -1,16 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch, computed } from 'vue';
+import type { User } from '../types';
 
-const props = defineProps({
-  show: Boolean,
-  user: {
-    type: Object,
-    default: null
-  },
-  loading: Boolean
-});
+const props = defineProps<{
+  show: boolean;
+  user?: User | null;
+  loading?: boolean;
+}>();
 
-const emit = defineEmits(['close', 'submit']);
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'submit', payload: Partial<User>): void;
+}>();
 
 const isEditing = computed(() => !!props.user);
 

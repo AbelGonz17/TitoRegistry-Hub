@@ -1,16 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import authService from '../services/auth';
+import type { User, AuthSession } from '../types';
 
-defineProps({
-  show: Boolean,
-  canClose: {
-    type: Boolean,
-    default: true
-  }
-});
+defineProps<{
+  show: boolean;
+  canClose?: boolean;
+}>();
 
-const emit = defineEmits(['close', 'login-success']);
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'login-success', session: User | AuthSession): void;
+}>();
 
 // Recordar usuario
 const rememberedEmail = authService.getRememberedEmail();
@@ -79,11 +80,10 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
 
         <!-- Cabecera de Marca -->
         <div class="auth-header">
-          <div class="brand-badge">
+          <div class="brand-logo-wrapper">
             <img src="/logo.png" alt="Transporte Tito" class="auth-logo" />
           </div>
-          <h2 class="auth-title">Transporte Tito</h2>
-          <p class="auth-slogan">"Servirle es nuestra prioridad"</p>
+          <span class="auth-portal-badge">Portal de Acceso</span>
         </div>
 
         <!-- Mensaje de Error -->
@@ -189,8 +189,7 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
   position: fixed;
   inset: 0;
   z-index: 1500;
-  background: rgba(8, 12, 10, 0.88);
-  backdrop-filter: blur(14px);
+  background: radial-gradient(circle at 50% 25%, rgba(21, 128, 61, 0.16) 0%, rgba(12, 17, 14, 1) 75%), #0c110e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -285,41 +284,43 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
 
 .auth-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.brand-badge {
-  display: inline-flex;
-  padding: 8px;
-  border-radius: 50%;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+.brand-logo-wrapper {
   margin-bottom: 10px;
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .auth-logo {
-  width: 52px;
-  height: 52px;
+  height: 110px;
+  width: auto;
+  max-width: 290px;
   object-fit: contain;
-  border-radius: 50%;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 25px rgba(34, 197, 94, 0.12));
+  transition: transform var(--transition-normal);
 }
 
-.auth-title {
-  font-size: 1.55rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #ffffff, #86efac);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 4px;
+.auth-logo:hover {
+  transform: scale(1.02);
 }
 
-.auth-slogan {
-  font-size: 0.86rem;
+.auth-portal-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: var(--radius-full);
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid var(--brand-border);
   color: var(--brand-green-light);
-  font-style: italic;
-  font-weight: 500;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 /* Error Banner */

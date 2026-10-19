@@ -1,7 +1,9 @@
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import api from './services/api';
 import authService from './services/auth';
+import type { User, Service, ServiceType, EmployeeSummary, ToastNotification } from './types';
 import Navbar from './components/Navbar.vue';
 import BottomNav from './components/BottomNav.vue';
 import Toast from './components/Toast.vue';
@@ -9,25 +11,43 @@ import RegisterServiceModal from './components/RegisterServiceModal.vue';
 import ServiceTypeModal from './components/ServiceTypeModal.vue';
 import AuthModal from './components/AuthModal.vue';
 import UserModal from './components/UserModal.vue';
-import DashboardView from './views/DashboardView.vue';
-import CatalogView from './views/CatalogView.vue';
-import UsersView from './views/UsersView.vue';
 
-// Estado global de la aplicación
-const currentTab = ref('dashboard'); // 'dashboard' | 'catalog' | 'users'
-const backendOnline = ref(false);
-const loading = ref(true);
-const modalLoading = ref(false);
+const route = useRoute();
+const router = useRouter();
 
-const employees = ref([]);
-const currentEmployeeId = ref(1);
-const employeeSummary = ref({});
-const services = ref([]);
-const serviceTypes = ref([]);
-const users = ref([]);
+// Estado global de la aplicación sincronizado con Vue Router
+const currentTab = computed<string>(() => {
+  if (route.path.startsWith('/services')) return 'services';
+  if (route.path.startsWith('/catalog')) return 'catalog';
+  if (route.path.startsWith('/users')) return 'users';
+  if (route.path.startsWith('/profile')) return 'profile';
+  return 'dashboard';
+});
+
+const backendOnline = ref<boolean>(false);
+const loading = ref<boolean>(true);
+const modalLoading = ref<boolean>(false);
+
+const employees = ref<User[]>([]);
+const currentEmployeeId = ref<number | string>(1);
+const employeeSummary = ref<EmployeeSummary>({
+  fullName: 'Chofer',
+  code: 'CHO-001',
+  role: 'Conductor',
+  department: 'Operaciones',
+  commissionRate: 25,
+  totalEarningsAccumulated: 0,
+  totalServicesCompleted: 0,
+  totalBilled: 0,
+  averageEarningsPerService: 0,
+  recentServices: []
+});
+const services = ref<Service[]>([]);
+const serviceTypes = ref<ServiceType[]>([]);
+const users = ref<User[]>([]);
 
 // Autenticación y Sesión de Usuario (lectura síncrona de caché inicial)
-const getCachedUser = () => {
+const getCachedUser = (): User | null => {
   try {
     const cached = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user') || localStorage.getItem('tito_current_user');
     return cached ? JSON.parse(cached) : null;
@@ -35,33 +55,40 @@ const getCachedUser = () => {
     return null;
   }
 };
-const currentUser = ref(getCachedUser());
-const showAuthModal = ref(false);
+const currentUser = ref<User | null>(getCachedUser());
+const showAuthModal = ref<boolean>(false);
 
 // Modales del sistema
-const showRegisterModal = ref(false);
-const showCatalogModal = ref(false);
-const showUserModal = ref(false);
-const editingServiceType = ref(null);
-const editingUser = ref(null);
+const showRegisterModal = ref<boolean>(false);
+const showCatalogModal = ref<boolean>(false);
+const showUserModal = ref<boolean>(false);
+const editingServiceType = ref<ServiceType | null>(null);
+const editingUser = ref<User | null>(null);
 
 // Notificaciones Toast
-const toast = ref({
+const toast = ref<ToastNotification>({
   show: false,
   message: '',
   type: 'success'
 });
 
-const showToast = (message, type = 'success') => {
+const showToast = (message: string, type: ToastNotification['type'] = 'success') => {
   toast.value = { show: true, message, type };
   setTimeout(() => {
     toast.value.show = false;
   }, 4000);
 };
 
+// Determinar si el usuario activo es Administrador
+const isAdmin = computed<boolean>(() => {
+  return !!(currentUser.value?.isSuperAdmin || 
+         currentUser.value?.role === 'Administrador' || 
+         currentUser.value?.role === 'SuperAdmin');
+});
+
 // Chofer actualmente seleccionado
-const currentEmployee = computed(() => {
-  return employees.value.find(e => e.id === currentEmployeeId.value) || {
+const currentEmployee = computed<any>(() => {
+  return employees.value.find(e => e.id === Number(currentEmployeeId.value)) || {
     id: currentEmployeeId.value,
     fullName: currentUser.value?.fullName || 'Chofer Activo',
     role: currentUser.value?.role || 'Conductor',
@@ -74,7 +101,7 @@ const checkHealth = async () => {
   try {
     const status = await api.getStatus();
     backendOnline.value = status?.status === 'Healthy';
-  } catch (error) {
+  } catch {
     backendOnline.value = false;
   }
 };
@@ -86,7 +113,7 @@ const loadEmployees = async () => {
 
     // Si hay un chofer logueado, sincronizar
     if (currentUser.value?.role === 'Chofer') {
-      const match = employees.value.find(e => e.email === currentUser.value.email || e.id === currentUser.value.id);
+      const match = employees.value.find(e => e.email === currentUser.value?.email || e.id === currentUser.value?.id);
       if (match) {
         currentEmployeeId.value = match.id;
       }
@@ -99,37 +126,22 @@ const loadEmployees = async () => {
 };
 
 const loadEmployeeData = async () => {
-  if (!currentEmployeeId.value) return;
   try {
     loading.value = true;
-    const [summary, srvList] = await Promise.all([
-      api.getEmployeeSummary(currentEmployeeId.value).catch(() => null),
-      api.getServicesByEmployee(currentEmployeeId.value).catch(() => [])
-    ]);
-
-    if (summary) {
-      employeeSummary.value = summary;
+    if (isAdmin.value) {
+      const allServices = await api.getAllServices().catch(() => []);
+      services.value = allServices || [];
     } else {
-      employeeSummary.value = {
-        id: currentEmployee.value.id,
-        code: currentEmployee.value.code || 'CHO-001',
-        fullName: currentEmployee.value.fullName,
-        email: currentEmployee.value.email || '',
-        phone: currentEmployee.value.phone || '',
-        role: currentEmployee.value.role || 'Conductor',
-        department: currentEmployee.value.department || 'Operaciones',
-        commissionRate: currentEmployee.value.commissionRate || 25,
-        isActive: true,
-        totalServicesCompleted: 0,
-        totalEarningsAccumulated: 0,
-        totalBilled: 0,
-        averageEarningsPerService: 0,
-        recentServices: []
-      };
+      if (!currentEmployeeId.value) return;
+      const [summary, srvList] = await Promise.all([
+        api.getEmployeeSummary(currentEmployeeId.value).catch(() => null),
+        api.getServicesByEmployee(currentEmployeeId.value).catch(() => [])
+      ]);
+      if (summary) employeeSummary.value = summary;
+      services.value = srvList || [];
     }
-    services.value = srvList || [];
-  } catch (err) {
-    showToast('Error al cargar datos del chofer', 'error');
+  } catch (error) {
+    console.error('Error al cargar datos del chofer:', error);
   } finally {
     loading.value = false;
   }
@@ -137,19 +149,21 @@ const loadEmployeeData = async () => {
 
 const loadCatalog = async () => {
   try {
-    const list = await api.getServiceTypes();
-    serviceTypes.value = list || [];
-  } catch (err) {
-    console.warn('Error al cargar catálogo:', err);
+    const types = await api.getServiceTypes().catch(() => []);
+    serviceTypes.value = types || [];
+  } catch (error) {
+    console.error('Error al cargar catálogo:', error);
   }
 };
 
 const loadUsers = async () => {
   try {
-    const list = await api.getUsers();
-    users.value = list || [];
-  } catch (err) {
-    console.warn('Error al cargar usuarios:', err);
+    if (isAdmin.value) {
+      const list = await api.getUsers().catch(() => []);
+      users.value = list || [];
+    }
+  } catch (error) {
+    console.error('Error al cargar usuarios:', error);
   }
 };
 
@@ -164,7 +178,6 @@ const refreshAll = async () => {
 };
 
 onMounted(async () => {
-  // Verificar token en el backend
   const verifiedUser = await authService.checkAuth();
   if (verifiedUser) {
     currentUser.value = verifiedUser;
@@ -173,56 +186,80 @@ onMounted(async () => {
   await refreshAll();
   setInterval(checkHealth, 15000);
 
-  // Si no hay sesión iniciada, abrir ventana de login
   if (!currentUser.value) {
     showAuthModal.value = true;
   }
 });
 
 // Manejo de Autenticación
-const openAuthModal = () => {
-  showAuthModal.value = true;
-};
-
-const onLoginSuccess = async (session) => {
-  currentUser.value = session;
+const onLoginSuccess = async (session: any) => {
+  const user = session.user || session;
+  currentUser.value = user;
   showAuthModal.value = false;
 
   await refreshAll();
 
-  // Si es chofer, enfocar su ID
-  if (session.role === 'Chofer') {
-    const match = employees.value.find(e => e.email === session.email);
+  if (user.role === 'Chofer') {
+    const match = employees.value.find(e => e.email === user.email);
     if (match) currentEmployeeId.value = match.id;
   }
 
-  showToast(`¡Bienvenido de vuelta, ${session.fullName}! (${session.role})`, 'success');
+  showToast(`¡Bienvenido de vuelta, ${user.fullName}! (${user.role})`, 'success');
+  router.push('/dashboard');
 };
 
 const onLogout = () => {
   authService.logout();
   currentUser.value = null;
-  currentTab.value = 'dashboard';
+  router.push('/dashboard');
   showToast('Has cerrado sesión correctamente.', 'info');
   showAuthModal.value = true;
 };
 
+// Control de navegación con Vue Router
+const onTabChange = (newTab: string) => {
+  const pathMap: Record<string, string> = {
+    dashboard: '/dashboard',
+    services: '/services',
+    catalog: '/catalog',
+    users: '/users',
+    profile: '/profile'
+  };
+
+  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users')) {
+    router.push('/dashboard');
+    return;
+  }
+
+  const targetPath = pathMap[newTab] || '/dashboard';
+  router.push(targetPath);
+};
+
+// Actualización de datos de perfil
+const onUpdateProfile = (updatedUser: Partial<User>) => {
+  currentUser.value = { ...currentUser.value!, ...updatedUser };
+  const idx = employees.value.findIndex(e => e.id === updatedUser.id);
+  if (idx !== -1) {
+    employees.value[idx] = { ...employees.value[idx], ...updatedUser } as User;
+  }
+};
+
 // Manejo de Chofer
-const onEmployeeChange = async (newId) => {
+const onEmployeeChange = async (newId: number | string) => {
   currentEmployeeId.value = newId;
   await loadEmployeeData();
   showToast(`Cambiado a chofer: ${currentEmployee.value.fullName}`, 'info');
 };
 
 // Manejo de Registro de Viajes
-const onRegisterService = async (payload) => {
+const onRegisterService = async (payload: any) => {
   try {
     modalLoading.value = true;
     const created = await api.registerService(payload);
-    showToast(`¡Viaje ${created.serviceCode} registrado! Ganancia: +$${created.employeeEarnings.toFixed(2)}`, 'success');
+    showToast(`¡Viaje ${created.serviceCode} registrado!`, 'success');
     showRegisterModal.value = false;
     await loadEmployeeData();
-  } catch (error) {
+  } catch (error: any) {
     showToast(error.message || 'Error al registrar el viaje', 'error');
   } finally {
     modalLoading.value = false;
@@ -235,12 +272,12 @@ const openCreateCatalogModal = () => {
   showCatalogModal.value = true;
 };
 
-const openEditCatalogModal = (st) => {
+const openEditCatalogModal = (st: ServiceType) => {
   editingServiceType.value = st;
   showCatalogModal.value = true;
 };
 
-const onSaveServiceType = async (payload) => {
+const onSaveServiceType = async (payload: Partial<ServiceType>) => {
   try {
     modalLoading.value = true;
     if (editingServiceType.value) {
@@ -252,19 +289,19 @@ const onSaveServiceType = async (payload) => {
     }
     showCatalogModal.value = false;
     await loadCatalog();
-  } catch (error) {
+  } catch (error: any) {
     showToast(error.message || 'Error al guardar en el catálogo', 'error');
   } finally {
     modalLoading.value = false;
   }
 };
 
-const onDeleteServiceType = async (id) => {
+const onDeleteServiceType = async (id: number | string) => {
   try {
     await api.softDeleteServiceType(id);
     showToast('Servicio eliminado lógicamente (Soft Delete) del catálogo', 'success');
     await loadCatalog();
-  } catch (error) {
+  } catch (error: any) {
     showToast(error.message || 'Error al eliminar el servicio', 'error');
   }
 };
@@ -275,12 +312,12 @@ const openCreateUserModal = () => {
   showUserModal.value = true;
 };
 
-const openEditUserModal = (u) => {
+const openEditUserModal = (u: User) => {
   editingUser.value = u;
   showUserModal.value = true;
 };
 
-const onSaveUser = async (payload) => {
+const onSaveUser = async (payload: Partial<User>) => {
   try {
     modalLoading.value = true;
     if (editingUser.value) {
@@ -295,14 +332,14 @@ const onSaveUser = async (payload) => {
       loadUsers(),
       loadEmployees()
     ]);
-  } catch (error) {
+  } catch (error: any) {
     showToast(error.message || 'Error al guardar el usuario', 'error');
   } finally {
     modalLoading.value = false;
   }
 };
 
-const onDeleteUser = async (id) => {
+const onDeleteUser = async (id: number | string) => {
   try {
     await api.deleteUser(id);
     showToast('Usuario dado de baja (Soft delete) correctamente', 'success');
@@ -310,14 +347,23 @@ const onDeleteUser = async (id) => {
       loadUsers(),
       loadEmployees()
     ]);
-  } catch (error) {
+  } catch (error: any) {
     showToast(error.message || 'Error al dar de baja el usuario', 'error');
   }
 };
 </script>
 
 <template>
-  <div class="app-layout">
+  <!-- 1. PANTALLA EXCLUSIVA DE ACCESO (Si NO ha iniciado sesión) -->
+  <AuthModal 
+    v-if="!currentUser"
+    :show="true"
+    :canClose="false"
+    @login-success="onLoginSuccess"
+  />
+
+  <!-- 2. APLICACIÓN COMPLETA (Solo cuando el usuario SÍ ha iniciado sesión) -->
+  <div v-else class="min-h-screen flex flex-col bg-brand-black">
     <!-- Barra Superior -->
     <Navbar 
       :employees="employees"
@@ -326,46 +372,37 @@ const onDeleteUser = async (id) => {
       :currentTab="currentTab"
       :currentUser="currentUser"
       @change-employee="onEmployeeChange"
-      @change-tab="tab => currentTab = tab"
+      @change-tab="onTabChange"
       @open-new-service="showRegisterModal = true"
-      @open-auth="openAuthModal"
       @logout="onLogout"
     />
 
-    <!-- Contenido Principal -->
-    <main class="main-content">
-      <div class="content-container">
-        <!-- Vista 1: Panel de Control de Viajes y Ganancias -->
-        <DashboardView 
-          v-if="currentTab === 'dashboard'"
-          :employeeSummary="employeeSummary"
-          :services="services"
-          :loading="loading"
-          @open-new-service="showRegisterModal = true"
-          @refresh="loadEmployeeData"
-        />
-
-        <!-- Vista 2: Catálogo Dinámico de Rutas y Servicios -->
-        <CatalogView 
-          v-else-if="currentTab === 'catalog'"
-          :serviceTypes="serviceTypes"
-          :loading="loading"
-          @open-create-modal="openCreateCatalogModal"
-          @edit-service-type="openEditCatalogModal"
-          @delete-service-type="onDeleteServiceType"
-        />
-
-        <!-- Vista 3: Gestión de Personal & Usuarios (Choferes & Administradores) -->
-        <UsersView 
-          v-else-if="currentTab === 'users'"
-          :users="users"
-          :loading="loading"
-          :currentUser="currentUser"
-          @open-create-modal="openCreateUserModal"
-          @edit-user="openEditUserModal"
-          @delete-user="onDeleteUser"
-          @refresh="loadUsers"
-        />
+    <!-- Contenido Principal Dinámico con Vue Router -->
+    <main class="flex-1 px-4 py-6 pb-24 md:p-8">
+      <div class="max-w-[1300px] mx-auto">
+        <RouterView v-slot="{ Component }">
+          <component 
+            :is="Component"
+            :employeeSummary="employeeSummary"
+            :services="services"
+            :loading="loading"
+            :currentUser="currentUser"
+            :drivers="employees"
+            :serviceTypes="serviceTypes"
+            :users="users"
+            @open-new-service="showRegisterModal = true"
+            @refresh="loadEmployeeData"
+            @open-create-modal="openCreateCatalogModal"
+            @edit-service-type="openEditCatalogModal"
+            @delete-service-type="onDeleteServiceType"
+            @open-create-user-modal="openCreateUserModal"
+            @edit-user="openEditUserModal"
+            @delete-user="onDeleteUser"
+            @update-profile="onUpdateProfile"
+            @logout="onLogout"
+            @notify="showToast"
+          />
+        </RouterView>
       </div>
     </main>
 
@@ -373,18 +410,9 @@ const onDeleteUser = async (id) => {
     <BottomNav 
       :currentTab="currentTab"
       :currentUser="currentUser"
-      @change-tab="tab => currentTab = tab"
+      @change-tab="onTabChange"
       @open-new-service="showRegisterModal = true"
-      @open-auth="openAuthModal"
       @refresh="refreshAll"
-    />
-
-    <!-- Modal de Inicio de Sesión -->
-    <AuthModal 
-      :show="showAuthModal"
-      :canClose="true"
-      @close="showAuthModal = false"
-      @login-success="onLoginSuccess"
     />
 
     <!-- Modal Personal / Usuario (Crear / Editar) -->
@@ -400,6 +428,8 @@ const onDeleteUser = async (id) => {
     <RegisterServiceModal 
       :show="showRegisterModal"
       :employee="currentEmployee"
+      :drivers="employees"
+      :isAdmin="isAdmin"
       :serviceTypes="serviceTypes"
       :loading="modalLoading"
       @close="showRegisterModal = false"
@@ -424,28 +454,3 @@ const onDeleteUser = async (id) => {
     />
   </div>
 </template>
-
-<style scoped>
-.app-layout {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--brand-black);
-}
-
-.main-content {
-  flex: 1;
-  padding: 24px 18px 80px; /* Espacio inferior para el BottomNav móvil */
-}
-
-@media (min-width: 769px) {
-  .main-content {
-    padding: 32px 24px;
-  }
-}
-
-.content-container {
-  max-width: 1300px;
-  margin: 0 auto;
-}
-</style>

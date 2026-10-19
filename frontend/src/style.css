@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* Transporte Tito - Paleta Corporativa */
   --brand-green: #15803d;

@@ -53,7 +53,7 @@ public class CreateUserDto
 
     public string Phone { get; set; } = string.Empty;
 
-    public string Role { get; set; } = "Chofer"; // SuperAdmin, Administrador, Chofer
+    public string Role { get; set; } = "Chofer"; // SuperAdmin, Admin, Chofer
 
     public string Department { get; set; } = "Operaciones";
 
@@ -78,4 +78,17 @@ public class UpdateUserDto
     public decimal CommissionRate { get; set; } = 25.0m;
 
     public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
+/// DTO para el cambio de contraseña de un usuario autenticado.
+/// </summary>
+public class ChangePasswordDto
+{
+    [Required(ErrorMessage = "La contraseña actual es obligatoria.")]
+    public string CurrentPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La nueva contraseña es obligatoria.")]
+    [MinLength(6, ErrorMessage = "La nueva contraseña debe tener al menos 6 caracteres.")]
+    public string NewPassword { get; set; } = string.Empty;
 }
