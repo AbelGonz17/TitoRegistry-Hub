@@ -163,9 +163,9 @@ const handleSubmit = () => {
           <span class="rate-badge">{{ activeDriver?.commissionRate || 25 }}% Comisión</span>
         </div>
 
-        <!-- 2. ReferenciaCLIENTE * -->
+        <!-- 2. Referencia / Cliente * -->
         <div class="form-group">
-          <label class="form-label">ReferenciaCLIENTE *</label>
+          <label class="form-label">Referencia / Cliente *</label>
           <input 
             v-model="formData.clientReference"
             type="text" 

@@ -34,6 +34,7 @@ public class UserDto
     public decimal CommissionRate { get; set; }
     public bool IsActive { get; set; }
     public bool IsSuperAdmin { get; set; }
+    public bool MustChangePassword { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -47,9 +48,10 @@ public class CreateUserDto
     [EmailAddress(ErrorMessage = "Formato de correo inválido.")]
     public string Email { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "La contraseña es obligatoria.")]
-    [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
-    public string Password { get; set; } = string.Empty;
+    /// <summary>
+    /// Opcional: Si se deja en blanco, la contraseña inicial será el código asignado (ej: CHO-007)
+    /// </summary>
+    public string? Password { get; set; }
 
     public string Phone { get; set; } = string.Empty;
 

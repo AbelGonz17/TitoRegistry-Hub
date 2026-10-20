@@ -14,6 +14,7 @@ export interface User {
   defaultTss?: number;
   isActive?: boolean;
   isSuperAdmin?: boolean;
+  mustChangePassword?: boolean;
   avatar?: string;
   createdAt?: string;
   loggedAt?: string;

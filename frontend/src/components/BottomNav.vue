@@ -52,6 +52,16 @@ const isAdmin = computed(() => {
         <span class="text-xl leading-none">📋</span>
         <span class="text-[11px] font-heading font-semibold">Catálogo</span>
       </button>
+      <!-- 3. Liquidaciones (Solo para Administradores) -->
+      <button 
+        v-if="isAdmin"
+        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'settlements' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
+        @click="$emit('change-tab', 'settlements')"
+      >
+        <span class="text-xl leading-none">📄</span>
+        <span class="text-[11px] font-heading font-semibold">Planilla</span>
+      </button>
+
 
 
       <!-- 4. Personal (Solo para Administradores) -->

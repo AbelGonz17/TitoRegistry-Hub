@@ -108,22 +108,6 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
               >
                 👑 SuperAdmin
               </button>
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('browel@titotransporte.com')"
-                title="Chofer Browel"
-              >
-                🚐 Browel
-              </button>
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('denny@titotransporte.com')"
-                title="Chofer Denny"
-              >
-                🚐 Denny
-              </button>
             </div>
           </div>
           <div class="form-group">
@@ -193,7 +177,7 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 24px 20px;
   overflow-y: auto;
 }
 
@@ -201,11 +185,14 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
   position: relative;
   width: 100%;
   max-width: 440px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  margin: auto;
   background: linear-gradient(180deg, rgba(22, 32, 26, 0.98), rgba(14, 21, 17, 0.98));
   border: 1px solid var(--brand-border-strong);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(34, 197, 94, 0.15);
-  border-radius: var(--radius-lg);
-  padding: 34px 28px;
+  border-radius: var(--radius-lg, 18px);
+  padding: 32px 28px;
   color: var(--text-main);
   animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -473,5 +460,29 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 768px) {
+  .auth-overlay {
+    padding: 20px 16px;
+  }
+  .auth-card {
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 40px);
+    padding: 24px 20px;
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-overlay {
+    padding: 16px 12px;
+  }
+  .auth-card {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 32px);
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
 }
 </style>

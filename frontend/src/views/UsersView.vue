@@ -9,7 +9,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'open-create-modal'): void;
+  (e: 'open-create-user-modal'): void;
   (e: 'edit-user', u: User): void;
   (e: 'delete-user', id: number | string): void;
   (e: 'refresh'): void;
@@ -134,7 +134,7 @@ const getRoleBadgeClasses = (role, isSuperAdmin) => {
       <!-- Botón Principal: + Nuevo Usuario -->
       <button 
         class="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-green-hover to-brand-green hover:from-brand-green-light hover:to-brand-green-hover text-white font-heading font-semibold text-sm rounded-xl shadow-lg shadow-brand-green/30 hover:-translate-y-0.5 transition-all cursor-pointer"
-        @click="$emit('open-create-modal')"
+        @click="$emit('open-create-user-modal')"
       >
         <span class="text-lg font-bold leading-none">+</span>
         <span>Nuevo Usuario</span>

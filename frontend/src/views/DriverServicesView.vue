@@ -224,7 +224,7 @@ const formatDate = (dateStr) => {
               Ganancia · {{ periodLabel }}
             </span>
             <span class="bg-brand-green/20 text-brand-green-light border border-brand-green/30 text-[10px] font-bold px-2 py-0.2 rounded-full">
-              {{ employeeSummary.commissionRate || 25 }}% Comisión
+              {{ employeeSummary?.commissionRate || 25 }}% Comisión
             </span>
           </div>
           <span class="text-2xl">💰</span>

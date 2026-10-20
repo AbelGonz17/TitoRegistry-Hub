@@ -106,7 +106,7 @@ public class AuthService : IAuthService
             throw new ArgumentException("La nueva contraseña debe tener al menos 6 caracteres.");
 
         string newHash = _passwordHasher.HashPassword(dto.NewPassword);
-        user.SetPasswordHash(newHash);
+        user.CompleteFirstPasswordChange(newHash);
 
         await _context.SaveChangesAsync(cancellationToken);
         return true;
@@ -124,6 +124,7 @@ public class AuthService : IAuthService
         CommissionRate = user.CommissionRate,
         IsActive = user.IsActive,
         IsSuperAdmin = user.Role == UserRole.SuperAdmin,
+        MustChangePassword = user.MustChangePassword,
         CreatedAt = user.CreatedAt
     };
 }

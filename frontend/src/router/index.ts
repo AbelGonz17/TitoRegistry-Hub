@@ -3,6 +3,7 @@ import DashboardView from '../views/DashboardView.vue';
 import DriverServicesView from '../views/DriverServicesView.vue';
 import CatalogView from '../views/CatalogView.vue';
 import UsersView from '../views/UsersView.vue';
+import SettlementsView from '../views/SettlementsView.vue';
 import ProfileView from '../views/ProfileView.vue';
 import { getToken } from '../services/auth';
 
@@ -43,6 +44,18 @@ const routes: RouteRecordRaw[] = [
       adminOnly: true
     }
   },
+  {
+    path: '/settlements',
+    name: 'settlements',
+    component: SettlementsView,
+    meta: {
+      title: 'Liquidaciones & Planilla',
+      tabKey: 'settlements',
+      icon: '📄',
+      adminOnly: true
+    }
+  },
+
   {
     path: '/users',
     name: 'users',

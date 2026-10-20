@@ -107,6 +107,16 @@ const currentSectionInfo = computed(() => {
           <span>📋</span>
           <span>Catálogo de Rutas</span>
         </button>
+        <!-- Liquidaciones y Planilla (Solo Administradores) -->
+        <button 
+          v-if="isAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'settlements' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
+          @click="$emit('change-tab', 'settlements')"
+        >
+          <span>📄</span>
+          <span>Liquidaciones</span>
+        </button>
+
 
         <!-- Personal / Choferes (Solo Administradores) -->
         <button 
@@ -175,6 +185,15 @@ const currentSectionInfo = computed(() => {
               <span>👤</span>
               <span>Mi Perfil & Contraseña</span>
             </button>
+            <button 
+              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador'"
+              class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('change-tab', 'settlements'); showUserMenu = false"
+            >
+              <span>📄</span>
+              <span>Liquidaciones & Planilla</span>
+            </button>
+
             <button 
               v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador'"
               class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 

@@ -47,15 +47,33 @@ public class UserService : IUserService
         if (exists)
             throw new InvalidOperationException($"Ya existe un usuario registrado con el correo {cleanEmail}.");
 
-        // Generar correlativo (ADM-00X o CHO-00X)
+        // Identificar rol correspondiente
         var userRole = ParseRole(dto.Role);
         bool isDriver = userRole == UserRole.Chofer;
-
         string prefix = isDriver ? "CHO" : "ADM";
-        int count = await _context.Users.CountAsync(u => u.Role == userRole, cancellationToken);
-        string code = $"{prefix}-{(count + 1):D3}";
 
-        string passwordHash = _passwordHasher.HashPassword(dto.Password);
+        // Generar correlativo incremental buscando el mayor número existente para evitar colisiones
+        var existingCodes = await _context.Users
+            .IgnoreQueryFilters()
+            .Where(u => u.Code.StartsWith(prefix + "-"))
+            .Select(u => u.Code)
+            .ToListAsync(cancellationToken);
+
+        int maxNumber = 0;
+        foreach (var existingCode in existingCodes)
+        {
+            var parts = existingCode.Split('-');
+            if (parts.Length >= 2 && int.TryParse(parts[1], out int num))
+            {
+                if (num > maxNumber) maxNumber = num;
+            }
+        }
+
+        string code = $"{prefix}-{(maxNumber + 1):D3}";
+
+        // Si no se envía contraseña, la contraseña temporal es su propio código (ej: ADM-002 o CHO-003)
+        string initialPassword = string.IsNullOrWhiteSpace(dto.Password) ? code : dto.Password.Trim();
+        string passwordHash = _passwordHasher.HashPassword(initialPassword);
 
         var user = new User(
             code: code,
@@ -65,7 +83,8 @@ public class UserService : IUserService
             phone: dto.Phone,
             role: userRole,
             department: dto.Department,
-            commissionRate: dto.CommissionRate
+            commissionRate: dto.CommissionRate,
+            mustChangePassword: true
         );
 
         _context.Users.Add(user);
@@ -118,11 +137,19 @@ public class UserService : IUserService
 
     private static UserRole ParseRole(string role)
     {
-        if (Enum.TryParse<UserRole>(role, true, out var parsed))
+        if (string.IsNullOrWhiteSpace(role))
+            return UserRole.Chofer;
+
+        var clean = role.Trim();
+
+        if (Enum.TryParse<UserRole>(clean, true, out var parsed))
             return parsed;
 
-        if (role.Equals("Conductor", StringComparison.OrdinalIgnoreCase))
-            return UserRole.Chofer;
+        if (clean.Contains("Super", StringComparison.OrdinalIgnoreCase))
+            return UserRole.SuperAdmin;
+
+        if (clean.Contains("Admin", StringComparison.OrdinalIgnoreCase))
+            return UserRole.Administrador;
 
         return UserRole.Chofer;
     }
@@ -139,6 +166,7 @@ public class UserService : IUserService
         CommissionRate = user.CommissionRate,
         IsActive = user.IsActive,
         IsSuperAdmin = user.Role == UserRole.SuperAdmin,
+        MustChangePassword = user.MustChangePassword,
         CreatedAt = user.CreatedAt
     };
 }

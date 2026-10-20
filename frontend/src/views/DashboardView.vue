@@ -207,14 +207,14 @@ const formatDate = (dateStr) => {
         </div>
         <div>
           <div class="inline-flex items-center gap-2 px-2 py-0.5 bg-brand-green/15 border border-brand-border rounded-full text-[10px] font-bold text-brand-green-light mb-1 uppercase tracking-wider">
-            <span>{{ employeeSummary.code || 'CHO-001' }}</span>
+            <span>{{ employeeSummary?.code || currentUser?.code || 'CHO-001' }}</span>
             <span class="opacity-50">•</span>
-            <span>Comisión: {{ employeeSummary.commissionRate || 25 }}%</span>
+            <span>Comisión: {{ employeeSummary?.commissionRate || currentUser?.commissionRate || 25 }}%</span>
           </div>
           <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading leading-tight">
-            {{ employeeSummary.fullName }}
+            {{ employeeSummary?.fullName || currentUser?.fullName || 'Chofer Activo' }}
           </h1>
-          <p class="text-slate-400 text-xs mt-0.5">{{ employeeSummary.role }} — {{ employeeSummary.department }}</p>
+          <p class="text-slate-400 text-xs mt-0.5">{{ employeeSummary?.role || currentUser?.role || 'Conductor' }} — {{ employeeSummary?.department || currentUser?.department || 'Operaciones' }}</p>
         </div>
       </div>
 

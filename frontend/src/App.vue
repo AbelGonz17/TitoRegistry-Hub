@@ -11,6 +11,7 @@ import RegisterServiceModal from './components/RegisterServiceModal.vue';
 import ServiceTypeModal from './components/ServiceTypeModal.vue';
 import AuthModal from './components/AuthModal.vue';
 import UserModal from './components/UserModal.vue';
+import FirstLoginPasswordModal from './components/FirstLoginPasswordModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,18 +31,19 @@ const modalLoading = ref<boolean>(false);
 
 const employees = ref<User[]>([]);
 const currentEmployeeId = ref<number | string>(1);
-const employeeSummary = ref<EmployeeSummary>({
-  fullName: 'Chofer',
-  code: 'CHO-001',
-  role: 'Conductor',
-  department: 'Operaciones',
-  commissionRate: 25,
+const createDefaultSummary = (u?: Partial<User> | null): EmployeeSummary => ({
+  fullName: u?.fullName || 'Chofer Activo',
+  code: u?.code || 'CHO-001',
+  role: u?.role || 'Conductor',
+  department: u?.department || 'Operaciones',
+  commissionRate: u?.commissionRate || 25,
   totalEarningsAccumulated: 0,
   totalServicesCompleted: 0,
   totalBilled: 0,
   averageEarningsPerService: 0,
   recentServices: []
 });
+const employeeSummary = ref<EmployeeSummary>(createDefaultSummary(null));
 const services = ref<Service[]>([]);
 const serviceTypes = ref<ServiceType[]>([]);
 const users = ref<User[]>([]);
@@ -62,6 +64,7 @@ const showAuthModal = ref<boolean>(false);
 const showRegisterModal = ref<boolean>(false);
 const showCatalogModal = ref<boolean>(false);
 const showUserModal = ref<boolean>(false);
+const showFirstLoginModal = ref<boolean>(false);
 const editingServiceType = ref<ServiceType | null>(null);
 const editingUser = ref<User | null>(null);
 
@@ -107,6 +110,7 @@ const checkHealth = async () => {
 };
 
 const loadEmployees = async () => {
+  if (!currentUser.value) return;
   try {
     const backendList = await api.getEmployees().catch(() => []);
     employees.value = backendList || [];
@@ -117,7 +121,7 @@ const loadEmployees = async () => {
       if (match) {
         currentEmployeeId.value = match.id;
       }
-    } else if (employees.value.length > 0 && !currentEmployeeId.value) {
+    } else if (isAdmin.value && employees.value.length > 0 && !currentEmployeeId.value) {
       currentEmployeeId.value = employees.value[0].id;
     }
   } catch (err) {
@@ -126,6 +130,7 @@ const loadEmployees = async () => {
 };
 
 const loadEmployeeData = async () => {
+  if (!currentUser.value) return;
   try {
     loading.value = true;
     if (isAdmin.value) {
@@ -148,6 +153,7 @@ const loadEmployeeData = async () => {
 };
 
 const loadCatalog = async () => {
+  if (!currentUser.value) return;
   try {
     const types = await api.getServiceTypes().catch(() => []);
     serviceTypes.value = types || [];
@@ -157,11 +163,10 @@ const loadCatalog = async () => {
 };
 
 const loadUsers = async () => {
+  if (!currentUser.value || !isAdmin.value) return;
   try {
-    if (isAdmin.value) {
-      const list = await api.getUsers().catch(() => []);
-      users.value = list || [];
-    }
+    const list = await api.getUsers().catch(() => []);
+    users.value = list || [];
   } catch (error) {
     console.error('Error al cargar usuarios:', error);
   }
@@ -169,6 +174,8 @@ const loadUsers = async () => {
 
 const refreshAll = async () => {
   await checkHealth();
+  if (!currentUser.value) return;
+
   await Promise.all([
     loadEmployees(),
     loadEmployeeData(),
@@ -178,15 +185,25 @@ const refreshAll = async () => {
 };
 
 onMounted(async () => {
+  await checkHealth();
+  setInterval(checkHealth, 15000);
+
   const verifiedUser = await authService.checkAuth();
   if (verifiedUser) {
     currentUser.value = verifiedUser;
-  }
-
-  await refreshAll();
-  setInterval(checkHealth, 15000);
-
-  if (!currentUser.value) {
+    if (verifiedUser.role === 'Chofer') {
+      currentEmployeeId.value = verifiedUser.id;
+    }
+    if (verifiedUser.mustChangePassword) {
+      showFirstLoginModal.value = true;
+    }
+    await refreshAll();
+  } else {
+    // Si no hay nadie autenticado, limpiar estados y abrir modal de login
+    currentUser.value = null;
+    currentEmployeeId.value = '';
+    services.value = [];
+    employeeSummary.value = createDefaultSummary(null);
     showAuthModal.value = true;
   }
 });
@@ -197,21 +214,37 @@ const onLoginSuccess = async (session: any) => {
   currentUser.value = user;
   showAuthModal.value = false;
 
-  await refreshAll();
-
   if (user.role === 'Chofer') {
-    const match = employees.value.find(e => e.email === user.email);
-    if (match) currentEmployeeId.value = match.id;
+    currentEmployeeId.value = user.id;
+    employeeSummary.value = createDefaultSummary(user);
+  }
+
+  if (user.mustChangePassword) {
+    showFirstLoginModal.value = true;
   }
 
   showToast(`¡Bienvenido de vuelta, ${user.fullName}! (${user.role})`, 'success');
-  router.push('/dashboard');
+  router.push('/dashboard').catch(() => {});
+
+  await refreshAll();
+};
+
+const onFirstPasswordChanged = () => {
+  showFirstLoginModal.value = false;
+  if (currentUser.value) {
+    currentUser.value.mustChangePassword = false;
+  }
+  showToast('¡Contraseña personalizada configurada con éxito! Bienvenido al sistema.', 'success');
 };
 
 const onLogout = async () => {
   await authService.logout();
   currentUser.value = null;
-  router.push('/dashboard');
+  currentEmployeeId.value = '';
+  services.value = [];
+  employeeSummary.value = createDefaultSummary(null);
+  showFirstLoginModal.value = false;
+  router.push('/dashboard').catch(() => {});
   showToast('Has cerrado sesión correctamente.', 'info');
   showAuthModal.value = true;
 };
@@ -222,11 +255,12 @@ const onTabChange = (newTab: string) => {
     dashboard: '/dashboard',
     services: '/services',
     catalog: '/catalog',
+    settlements: '/settlements',
     users: '/users',
     profile: '/profile'
   };
 
-  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users')) {
+  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users' || newTab === 'settlements')) {
     router.push('/dashboard');
     return;
   }
@@ -325,7 +359,7 @@ const onSaveUser = async (payload: Partial<User>) => {
       showToast(`Usuario ${payload.fullName} actualizado correctamente`, 'success');
     } else {
       const created = await api.createUser(payload);
-      showToast(`¡Usuario ${created.fullName} (${created.code}) creado exitosamente!`, 'success');
+      showToast(`¡Usuario ${created.fullName} (${created.code}) creado exitosamente! Clave temporal de acceso: ${created.code}`, 'success');
     }
     showUserModal.value = false;
     await Promise.all([
@@ -354,18 +388,10 @@ const onDeleteUser = async (id: number | string) => {
 </script>
 
 <template>
-  <!-- 1. PANTALLA EXCLUSIVA DE ACCESO (Si NO ha iniciado sesión) -->
-  <AuthModal 
-    v-if="!currentUser"
-    :show="true"
-    :canClose="false"
-    @login-success="onLoginSuccess"
-  />
-
-  <!-- 2. APLICACIÓN COMPLETA (Solo cuando el usuario SÍ ha iniciado sesión) -->
-  <div v-else class="min-h-screen flex flex-col bg-brand-black">
+  <div class="min-h-screen flex flex-col bg-brand-black">
     <!-- Barra Superior -->
     <Navbar 
+      v-if="currentUser"
       :employees="employees"
       :currentEmployeeId="currentEmployeeId"
       :backendOnline="backendOnline"
@@ -378,7 +404,7 @@ const onDeleteUser = async (id: number | string) => {
     />
 
     <!-- Contenido Principal Dinámico con Vue Router -->
-    <main class="flex-1 px-4 py-6 pb-24 md:p-8">
+    <main v-if="currentUser" class="flex-1 px-4 py-6 pb-24 md:p-8">
       <div class="max-w-[1300px] mx-auto">
         <RouterView v-slot="{ Component }">
           <component 
@@ -408,11 +434,19 @@ const onDeleteUser = async (id: number | string) => {
 
     <!-- Barra de Navegación Táctil Inferior (Móvil) -->
     <BottomNav 
+      v-if="currentUser"
       :currentTab="currentTab"
       :currentUser="currentUser"
       @change-tab="onTabChange"
       @open-new-service="showRegisterModal = true"
       @refresh="refreshAll"
+    />
+
+    <!-- Modal de Inicio de Sesión (Activo cuando NO hay usuario autenticado) -->
+    <AuthModal 
+      :show="!currentUser"
+      :canClose="false"
+      @login-success="onLoginSuccess"
     />
 
     <!-- Modal Personal / Usuario (Crear / Editar) -->
@@ -422,6 +456,14 @@ const onDeleteUser = async (id: number | string) => {
       :loading="modalLoading"
       @close="showUserModal = false"
       @submit="onSaveUser"
+    />
+
+    <!-- Modal Cambio Obligatorio de Contraseña Primer Inicio -->
+    <FirstLoginPasswordModal 
+      :show="showFirstLoginModal"
+      :currentUser="currentUser"
+      @password-changed="onFirstPasswordChanged"
+      @logout="onLogout"
     />
 
     <!-- Modal Registrar Viaje / Servicio -->

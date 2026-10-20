@@ -30,6 +30,10 @@ async function request<T = any>(endpoint: string, options: RequestOptions = {}):
     const data = await response.json().catch(() => null);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
+      }
       const errorMessage = data?.message || data?.title || `Error en la solicitud: ${response.status} ${response.statusText}`;
       throw new Error(errorMessage);
     }
@@ -177,6 +181,44 @@ export const api = {
   softDeleteServiceType: (id: number | string): Promise<void> => request(`/servicetypes/${id}`, {
     method: 'DELETE',
   }),
+
+  // Liquidaciones y Planilla Mensual (/api/settlements)
+  calculateSettlement: (params: {
+    driverId: number | string;
+    month: number;
+    year: number;
+    companyRetentionRate?: number;
+    driverCommissionRate?: number;
+    isr?: number;
+    tss?: number;
+    phoneIncentive?: number;
+    otherIncentives?: number;
+    otherDeductions?: number;
+  }): Promise<any> => {
+    const query = new URLSearchParams();
+    query.append('driverId', String(params.driverId));
+    query.append('month', String(params.month));
+    query.append('year', String(params.year));
+    if (params.companyRetentionRate !== undefined) query.append('companyRetentionRate', String(params.companyRetentionRate));
+    if (params.driverCommissionRate !== undefined) query.append('driverCommissionRate', String(params.driverCommissionRate));
+    if (params.isr !== undefined) query.append('isr', String(params.isr));
+    if (params.tss !== undefined) query.append('tss', String(params.tss));
+    if (params.phoneIncentive !== undefined) query.append('phoneIncentive', String(params.phoneIncentive));
+    if (params.otherIncentives !== undefined) query.append('otherIncentives', String(params.otherIncentives));
+    if (params.otherDeductions !== undefined) query.append('otherDeductions', String(params.otherDeductions));
+    return request<any>(`/settlements/calculate?${query.toString()}`);
+  },
+  saveSettlement: (payload: any): Promise<any> => request<any>('/settlements', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  getSettlementHistory: (params: { driverId?: number | string; year?: number } = {}): Promise<any[]> => {
+    const query = new URLSearchParams();
+    if (params.driverId) query.append('driverId', String(params.driverId));
+    if (params.year) query.append('year', String(params.year));
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return request<any[]>(`/settlements/history${qs}`);
+  },
 };
 
 export default api;
