@@ -208,8 +208,8 @@ const onLoginSuccess = async (session: any) => {
   router.push('/dashboard');
 };
 
-const onLogout = () => {
-  authService.logout();
+const onLogout = async () => {
+  await authService.logout();
   currentUser.value = null;
   router.push('/dashboard');
   showToast('Has cerrado sesión correctamente.', 'info');

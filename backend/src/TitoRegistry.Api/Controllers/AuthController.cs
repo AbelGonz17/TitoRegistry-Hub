@@ -7,7 +7,7 @@ using TitoRegistry.Application.Services;
 namespace TitoRegistry.Api.Controllers;
 
 /// <summary>
-/// Controlador de autenticación, emisión de tokens JWT y seguridad del usuario.
+/// Controlador de autenticación, emisión de tokens JWT, seguridad del usuario y cierre de sesión.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -80,12 +80,6 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Cambia la contraseña del usuario actualmente autenticado validando su contraseña actual.
     /// </summary>
-    /// <param name="dto">Contraseña actual y nueva contraseña.</param>
-    /// <param name="cancellationToken">Token de cancelación.</param>
-    /// <returns>Confirmación del cambio de contraseña.</returns>
-    /// <response code="200">Contraseña cambiada con éxito.</response>
-    /// <response code="400">Datos inválidos o longitud insuficiente.</response>
-    /// <response code="401">Contraseña actual incorrecta o token inválido.</response>
     [HttpPost("change-password")]
     [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -126,5 +120,28 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Error al cambiar la contraseña del usuario {UserId}", userId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { success = false, message = "Ocurrió un error interno al actualizar la contraseña." });
         }
+    }
+
+    /// <summary>
+    /// Cierra la sesión del usuario autenticado en el servidor y registra la desconexión.
+    /// </summary>
+    /// <returns>Confirmación de cierre de sesión exitoso.</returns>
+    /// <response code="200">Sesión cerrada exitosamente.</response>
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult Logout()
+    {
+        var userEmail = User.FindFirst(ClaimTypes.Email)?.Value 
+            ?? User.FindFirst("email")?.Value 
+            ?? "Usuario";
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? User.FindFirst("sub")?.Value 
+            ?? "N/A";
+
+        _logger.LogInformation("Usuario {Email} (ID: {UserId}) cerró sesión exitosamente.", userEmail, userId);
+
+        return Ok(new { success = true, message = "Sesión cerrada exitosamente." });
     }
 }

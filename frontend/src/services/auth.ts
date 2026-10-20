@@ -144,7 +144,22 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 // 3. Cerrar sesión
-export function logout(): void {
+export async function logout(): Promise<void> {
+  const token = getToken();
+  if (token) {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (err) {
+      console.warn('[Auth] Error al notificar logout al backend:', err);
+    }
+  }
+
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem('tito_current_user');
