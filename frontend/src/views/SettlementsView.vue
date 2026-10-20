@@ -54,7 +54,7 @@ const yearsList = [2025, 2026, 2027, 2028];
 
 // Lista de choferes disponibles
 const driverList = computed(() => {
-  return (props.drivers || []).filter(u => u.role === 'Chofer' || u.role === 'Conductor' || !u.isSuperAdmin);
+  return (props.drivers || []).filter(u => (u.role === 'Chofer' || u.role === 'Conductor') && !u.isSuperAdmin);
 });
 
 // Chofer actualmente seleccionado
