@@ -1,522 +1,216 @@
-<script setup>
-import { ref } from 'vue';
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { User } from '../types';
 
-defineProps({
-  employees: {
-    type: Array,
-    default: () => []
-  },
-  currentEmployeeId: [Number, String],
-  backendOnline: Boolean,
-  currentTab: String,
-  currentUser: {
-    type: Object,
-    default: null
-  }
-});
+const props = defineProps<{
+  employees?: User[];
+  currentEmployeeId?: number | string;
+  backendOnline?: boolean;
+  currentTab?: string;
+  currentUser?: User | null;
+}>();
 
-defineEmits(['change-employee', 'change-tab', 'open-new-service', 'open-auth', 'logout']);
+defineEmits<{
+  (e: 'change-employee', id: number | string): void;
+  (e: 'change-tab', tab: string): void;
+  (e: 'open-new-service'): void;
+  (e: 'open-auth', mode: string): void;
+  (e: 'logout'): void;
+}>();
 
 const showUserMenu = ref(false);
+
+const isAdmin = computed(() => {
+  return props.currentUser?.isSuperAdmin || 
+         props.currentUser?.role === 'Administrador' || 
+         props.currentUser?.role === 'SuperAdmin';
+});
+
+// Título dinámico según la sección actual en vista móvil
+const currentSectionInfo = computed(() => {
+  switch (props.currentTab) {
+    case 'services':
+      return {
+        title: 'Mis Servicios',
+        icon: '🚐'
+      };
+    case 'profile':
+      return {
+        title: 'Mi Perfil',
+        icon: '👤'
+      };
+    case 'catalog':
+      return {
+        title: 'Catálogo Rutas',
+        icon: '📋'
+      };
+    case 'users':
+      return {
+        title: 'Personal',
+        icon: '👥'
+      };
+    case 'dashboard':
+    default:
+      return {
+        title: isAdmin.value ? 'Panel de Flota' : 'Historial de Viajes',
+        icon: isAdmin.value ? '👑' : '📊'
+      };
+  }
+});
 </script>
 
 <template>
-  <header class="navbar-wrapper">
-    <div class="navbar-container">
+  <header class="sticky top-0 z-[800] bg-brand-charcoal/95 border-b border-brand-border/80 backdrop-blur-xl transition-all pt-[max(8px,env(safe-area-inset-top,0px))]">
+    <div class="max-w-[1300px] mx-auto px-4 md:px-6 min-h-[64px] md:min-h-[72px] py-2 flex items-center justify-between gap-3 md:gap-4">
       <!-- Logo y Branding Transporte Tito -->
-      <div class="navbar-brand">
-        <img src="/logo.png" alt="Transporte Tito" class="brand-logo" />
-        <div class="brand-text">
-          <span class="brand-title">Transporte Tito</span>
-          <span class="brand-slogan">"Servirle es nuestra prioridad"</span>
+      <div class="flex items-center gap-3 cursor-pointer select-none py-0.5 shrink-0" @click="$emit('change-tab', 'dashboard')">
+        <img src="/logo.png" alt="Transporte Tito" class="h-9 sm:h-10 md:h-11 w-auto object-contain drop-shadow-sm" />
+      </div>
+
+      <!-- Título Dinámico Central (Visible en Móvil para llenar el espacio vacío) -->
+      <div class="md:hidden flex items-center justify-center min-w-0 flex-1 px-1">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/[0.1] shadow-sm select-none">
+          <span class="text-xs leading-none">{{ currentSectionInfo.icon }}</span>
+          <span class="text-xs font-bold text-white font-heading tracking-tight truncate max-w-[160px]">
+            {{ currentSectionInfo.title }}
+          </span>
         </div>
       </div>
 
       <!-- Navegación central (visible en Desktop) -->
-      <nav class="navbar-nav desktop-only">
+      <nav class="hidden md:flex items-center gap-1.5 bg-brand-black/60 border border-brand-border rounded-xl p-1">
+        <!-- Panel (Para todos) -->
         <button 
-          :class="['nav-link', { active: currentTab === 'dashboard' }]"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'dashboard' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
           @click="$emit('change-tab', 'dashboard')"
         >
-          <span class="nav-icon">📊</span>
-          <span>Panel de Viajes</span>
+          <span>📊</span>
+          <span>{{ isAdmin ? 'Panel de Flota' : 'Mi Panel' }}</span>
         </button>
+
+        <!-- Mis Servicios (Exclusivo Choferes) -->
         <button 
-          :class="['nav-link', { active: currentTab === 'catalog' }]"
+          v-if="!isAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'services' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
+          @click="$emit('change-tab', 'services')"
+        >
+          <span>🚐</span>
+          <span>Mis Servicios</span>
+        </button>
+
+        <!-- Catálogo de Rutas (Solo Administradores) -->
+        <button 
+          v-if="isAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'catalog' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
           @click="$emit('change-tab', 'catalog')"
         >
-          <span class="nav-icon">📋</span>
+          <span>📋</span>
           <span>Catálogo de Rutas</span>
         </button>
+        <!-- Liquidaciones y Planilla (Solo Administrador de Operaciones, no Super Admin) -->
         <button 
-          v-if="currentUser && (currentUser.isSuperAdmin || currentUser.role === 'Administrador' || currentUser.role === 'SuperAdmin')"
-          :class="['nav-link', { active: currentTab === 'users' }]"
+          v-if="currentUser?.role === 'Administrador' && !currentUser?.isSuperAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'settlements' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
+          @click="$emit('change-tab', 'settlements')"
+        >
+          <span>📄</span>
+          <span>Liquidaciones</span>
+        </button>
+
+        <!-- Personal / Choferes (Solo Administradores) -->
+        <button 
+          v-if="isAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'users' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
           @click="$emit('change-tab', 'users')"
         >
-          <span class="nav-icon">👥</span>
+          <span>👥</span>
           <span>Personal / Choferes</span>
         </button>
       </nav>
 
-      <!-- Selector de Chofer y Acciones -->
-      <div class="navbar-actions">
-        <!-- Indicador de conexión con el Servidor -->
-        <div class="connection-status" :title="backendOnline ? 'Servidor .NET Conectado' : 'Sin conexión al servidor'">
-          <span :class="['status-dot', { online: backendOnline }]"></span>
-          <span class="status-label desktop-only">{{ backendOnline ? 'API Conectada' : 'Offline' }}</span>
+      <!-- Acciones de la barra superior -->
+      <div class="flex items-center gap-3">
+        <!-- Indicador de conexión con el Servidor (Solo visible para Administradores) -->
+        <div 
+          v-if="isAdmin" 
+          class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-brand-black/40 border border-brand-border text-xs select-none cursor-default pointer-events-none" 
+          :title="backendOnline ? 'Servidor .NET Conectado' : 'Sin conexión al servidor'"
+        >
+          <span :class="['w-2 h-2 rounded-full transition-all', backendOnline ? 'bg-brand-green-light shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500']"></span>
+          <span class="hidden md:inline text-slate-400 font-medium">{{ backendOnline ? 'API Conectada' : 'Offline' }}</span>
         </div>
 
-        <!-- Selector de Chofer Activo (Solo Administradores y SuperAdmin) -->
-        <div v-if="currentUser?.role !== 'Chofer'" class="driver-picker desktop-only">
-          <label class="picker-label">Chofer Activo:</label>
-          <select 
-            class="picker-select" 
-            :value="currentEmployeeId" 
-            @change="$emit('change-employee', Number($event.target.value))"
-          >
-            <option v-for="emp in employees" :key="emp.id" :value="emp.id">
-              {{ emp.fullName }} ({{ emp.code }} - {{ emp.commissionRate }}%)
-            </option>
-          </select>
-        </div>
-
-        <!-- Badge de Chofer Fijo si es Chofer -->
-        <div v-else class="driver-static-badge desktop-only">
-          <span class="static-badge-icon">🚐</span>
-          <span class="static-badge-name">{{ currentUser.fullName || 'Chofer' }}</span>
-          <span class="static-badge-rate">({{ currentUser.commissionRate ?? 25 }}%)</span>
-        </div>
-
-        <!-- Botón de acción rápida: Registrar Viaje -->
-        <button class="btn btn-primary desktop-only" @click="$emit('open-new-service')">
-          <span>+</span>
+        <!-- Botón de acción rápida: Registrar Viaje (Solo para Choferes) -->
+        <button 
+          v-if="!isAdmin" 
+          class="hidden md:inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-brand-green-hover to-brand-green hover:from-brand-green-light hover:to-brand-green-hover text-white font-heading font-semibold rounded-xl text-xs shadow-md shadow-brand-green/30 transition-all cursor-pointer" 
+          @click="$emit('open-new-service')"
+        >
+          <span class="text-base leading-none font-bold">+</span>
           <span>Registrar Viaje</span>
         </button>
 
         <!-- Bloque de Autenticación / Perfil de Usuario -->
-        <div v-if="currentUser" class="user-profile-wrapper">
-          <div class="user-chip" @click="showUserMenu = !showUserMenu">
-            <span class="user-avatar">{{ currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑') }}</span>
-            <div class="user-info desktop-only">
-              <span class="user-name">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
-              <span class="user-role">{{ currentUser.role || 'Conductor' }}</span>
+        <div v-if="currentUser" class="relative">
+          <div 
+            class="flex items-center gap-2.5 px-3 py-1.5 bg-brand-black/60 hover:bg-brand-card-hover border border-brand-border rounded-xl cursor-pointer transition-all" 
+            @click="showUserMenu = !showUserMenu"
+          >
+            <span class="text-lg leading-none">{{ currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑') }}</span>
+            <div class="hidden md:flex flex-col text-left">
+              <span class="text-xs font-bold text-white leading-tight">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
+              <span class="text-[10px] text-slate-400 uppercase tracking-wider">{{ currentUser.role || 'Conductor' }}</span>
             </div>
-            <span class="dropdown-chevron">▾</span>
+            <span class="text-slate-400 text-xs ml-0.5">▾</span>
           </div>
 
           <!-- Menú desplegable del usuario -->
-          <div v-if="showUserMenu" class="user-dropdown-menu" @click="showUserMenu = false">
-            <div class="dropdown-header">
-              <span class="dropdown-user-name">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
-              <span class="dropdown-user-email">{{ currentUser.email }}</span>
-              <span class="dropdown-badge">{{ (currentUser.isSuperAdmin || currentUser.role === 'SuperAdmin') ? 'SUPER ADMIN 👑' : (currentUser.role === 'Administrador' ? 'ADMINISTRADOR 👔' : (currentUser.code || 'CHOFER 🚐')) }}</span>
+          <div v-if="showUserMenu" class="absolute right-0 top-full mt-2 w-60 bg-brand-card border border-brand-border-strong rounded-2xl shadow-elevated p-2 z-[950]">
+            <div class="p-3 bg-brand-black/40 rounded-xl mb-1.5">
+              <span class="block text-xs font-bold text-white">{{ currentUser.fullName || currentUser.name || 'Usuario' }}</span>
+              <span class="block text-[11px] text-slate-400 truncate">{{ currentUser.email }}</span>
+              <span 
+                class="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                :class="(currentUser.isSuperAdmin || currentUser.role === 'SuperAdmin') ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' : (currentUser.role === 'Administrador' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'bg-brand-green/20 text-brand-green-light border border-brand-green/30')"
+              >
+                {{ (currentUser.isSuperAdmin || currentUser.role === 'SuperAdmin') ? 'SUPER ADMIN 👑' : (currentUser.role === 'Administrador' ? 'ADMINISTRADOR 👔' : (currentUser.code || 'CHOFER 🚐')) }}
+              </span>
             </div>
-            <div class="dropdown-divider"></div>
+            <div class="h-px bg-brand-border/40 my-1"></div>
             <button 
-              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador' || currentUser.role === 'SuperAdmin'"
-              class="dropdown-item" 
-              @click="$emit('change-tab', 'users')"
+              class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('change-tab', 'profile'); showUserMenu = false"
+            >
+              <span>👤</span>
+              <span>Mi Perfil & Contraseña</span>
+            </button>
+            <button 
+              v-if="currentUser?.role === 'Administrador' && !currentUser?.isSuperAdmin"
+              class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('change-tab', 'settlements'); showUserMenu = false"
+            >
+              <span>📄</span>
+              <span>Liquidaciones & Planilla</span>
+            </button>
+
+            <button 
+              v-if="isAdmin"
+              class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('change-tab', 'users'); showUserMenu = false"
             >
               <span>👥</span>
               <span>Personal / Choferes</span>
             </button>
-            <button class="dropdown-item logout-item" @click="$emit('logout')">
+            <button 
+              class="w-full text-left px-3 py-2 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('logout'); showUserMenu = false"
+            >
               <span>🚪</span>
               <span>Cerrar Sesión</span>
             </button>
           </div>
         </div>
-
-        <!-- Botón cuando no ha iniciado sesión -->
-        <div v-else class="auth-cta-group">
-          <button class="btn btn-primary" @click="$emit('open-auth', 'login')">
-            <span class="auth-icon">🔑</span>
-            <span>Ingresar</span>
-          </button>
-        </div>
       </div>
     </div>
   </header>
 </template>
-
-<style scoped>
-.navbar-wrapper {
-  background: rgba(18, 25, 20, 0.95);
-  border-bottom: 1px solid var(--brand-border);
-  backdrop-filter: blur(16px);
-  position: sticky;
-  top: 0;
-  z-index: 500;
-}
-
-.navbar-container {
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 10px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-logo {
-  height: 46px;
-  width: auto;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.brand-title {
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: 1.15rem;
-  color: #ffffff;
-  line-height: 1.1;
-}
-
-.brand-slogan {
-  font-size: 0.75rem;
-  color: var(--text-accent);
-  font-style: italic;
-  font-weight: 500;
-}
-
-.navbar-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-muted);
-  font-family: var(--font-heading);
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.nav-link:hover {
-  color: #ffffff;
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.nav-link.active {
-  color: #ffffff;
-  background: var(--brand-card);
-  border-color: var(--brand-border-strong);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-.navbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--brand-border);
-  border-radius: var(--radius-full);
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 8px #ef4444;
-}
-
-.status-dot.online {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-
-.status-label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.driver-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.picker-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.picker-select {
-  background: var(--brand-card);
-  border: 1px solid var(--brand-border-strong);
-  color: #ffffff;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  outline: none;
-  cursor: pointer;
-}
-
-.picker-select:focus {
-  border-color: var(--brand-green-light);
-}
-
-.driver-static-badge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
-  font-size: 0.85rem;
-}
-
-.static-badge-icon {
-  font-size: 1rem;
-}
-
-.static-badge-name {
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.static-badge-rate {
-  font-weight: 600;
-  color: var(--brand-green-light);
-  font-size: 0.8rem;
-}
-
-/* Perfil de Usuario */
-.user-profile-wrapper {
-  position: relative;
-}
-
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 6px;
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid var(--brand-border-strong);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  user-select: none;
-}
-
-.user-chip:hover {
-  background: rgba(34, 197, 94, 0.22);
-  border-color: var(--brand-green-light);
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
-}
-
-.user-avatar {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-  text-align: left;
-}
-
-.user-name {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.user-role {
-  font-size: 0.7rem;
-  color: var(--brand-green-light);
-  font-weight: 500;
-}
-
-.dropdown-chevron {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-/* Menú flotante del usuario */
-.user-dropdown-menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 230px;
-  background: rgba(18, 26, 21, 0.98);
-  border: 1px solid var(--brand-border-strong);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  backdrop-filter: blur(16px);
-  z-index: 600;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  animation: dropFade 0.2s ease;
-}
-
-@keyframes dropFade {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.dropdown-header {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-bottom: 8px;
-}
-
-.dropdown-user-name {
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: #ffffff;
-}
-
-.dropdown-user-email {
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  word-break: break-all;
-}
-
-.dropdown-badge {
-  display: inline-block;
-  align-self: flex-start;
-  margin-top: 4px;
-  background: rgba(34, 197, 94, 0.15);
-  color: var(--brand-green-light);
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--brand-border);
-  margin: 4px 0;
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  color: var(--text-main);
-  font-size: 0.85rem;
-  font-family: inherit;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  text-align: left;
-}
-
-.dropdown-item:hover {
-  background: rgba(34, 197, 94, 0.15);
-  color: #ffffff;
-}
-
-.logout-item {
-  color: #fca5a5;
-}
-
-.logout-item:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-}
-
-/* Botones de Auth para cuando no hay sesión */
-.auth-cta-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-outline-auth {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid var(--brand-border-strong);
-  color: var(--brand-green-light);
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-outline-auth:hover {
-  background: var(--brand-green);
-  color: #ffffff;
-  box-shadow: 0 0 14px rgba(34, 197, 94, 0.4);
-}
-
-.btn-register-auth {
-  padding: 7px 14px;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-hover));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border-radius: var(--radius-md);
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-register-auth:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.45);
-}
-
-@media (max-width: 768px) {
-  .desktop-only {
-    display: none !important;
-  }
-  .brand-logo {
-    height: 38px;
-  }
-  .brand-title {
-    font-size: 1rem;
-  }
-  .brand-slogan {
-    display: none;
-  }
-}
-</style>

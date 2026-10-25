@@ -1,90 +1,117 @@
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
+import type { ServiceType, User } from '../types';
 
-const props = defineProps({
-  show: Boolean,
-  employee: {
-    type: Object,
-    default: () => ({ id: 1, fullName: 'Chofer', commissionRate: 25 })
-  },
-  serviceTypes: {
-    type: Array,
-    default: () => []
-  },
-  loading: Boolean
-});
+const props = defineProps<{
+  show: boolean;
+  employee?: { id?: number | string; fullName?: string; commissionRate?: number; role?: string };
+  drivers?: User[];
+  isAdmin?: boolean;
+  serviceTypes?: ServiceType[];
+  loading?: boolean;
+}>();
 
-const emit = defineEmits(['close', 'submit']);
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'submit', payload: any): void;
+}>();
 
-// Formulario reactivo
+// Formulario reactivo alineado con el registro oficial
 const formData = ref({
-  serviceTypeId: '',
-  clientName: '',
-  clientAddress: '',
-  clientPhone: '',
+  driverId: '' as string | number,
+  clientReference: '',
+  serviceTypeId: '' as string | number,
+  description: '',
   serviceDate: new Date().toISOString().slice(0, 10),
-  priceCharged: '',
+  priceCharged: '' as string | number,
   notes: ''
 });
 
 const errorMessage = ref('');
 
-// Al abrir o cambiar tipos de servicio, inicializar selección
+// Al abrir el modal, inicializar datos
 watch(() => props.show, (newVal) => {
   if (newVal) {
     errorMessage.value = '';
+    const initialDriverId = props.employee?.id || (props.drivers && props.drivers.length > 0 ? props.drivers[0].id : '');
+    const firstServiceType = props.serviceTypes && props.serviceTypes.length > 0 ? props.serviceTypes[0] : null;
+
     formData.value = {
-      serviceTypeId: props.serviceTypes.length > 0 ? props.serviceTypes[0].id : '',
-      clientName: '',
-      clientAddress: '',
-      clientPhone: '',
+      driverId: initialDriverId,
+      clientReference: '',
+      serviceTypeId: firstServiceType ? firstServiceType.id : '',
+      description: '',
       serviceDate: new Date().toISOString().slice(0, 10),
-      priceCharged: props.serviceTypes.length > 0 ? props.serviceTypes[0].defaultPrice : '',
+      priceCharged: firstServiceType ? (firstServiceType as any).defaultPrice || (firstServiceType as any).basePrice || '' : '',
       notes: ''
     };
   }
 });
 
+// Chofer actualmente asociado al cálculo
+const activeDriver = computed(() => {
+  if (props.isAdmin && formData.value.driverId && props.drivers?.length) {
+    return props.drivers.find(d => d.id === Number(formData.value.driverId)) || props.employee;
+  }
+  return props.employee;
+});
+
 // Cuando cambia el tipo de servicio seleccionado, sugerir el precio base del catálogo
-const onServiceTypeChange = (event) => {
-  const typeId = Number(event.target.value);
+const onServiceTypeChange = (event: Event) => {
+  const target = event.target as HTMLSelectElement;
+  const typeId = Number(target.value);
   formData.value.serviceTypeId = typeId;
-  const selected = props.serviceTypes.find(s => s.id === typeId);
+  const selected = props.serviceTypes?.find(s => s.id === typeId);
+  const basePrice = (selected as any)?.defaultPrice ?? (selected as any)?.basePrice;
   if (selected && (!formData.value.priceCharged || Number(formData.value.priceCharged) === 0)) {
-    formData.value.priceCharged = selected.defaultPrice;
+    formData.value.priceCharged = basePrice || '';
   }
 };
 
-// Cálculo en vivo de lo que acumulará el chofer
+// Cálculo en vivo de la comisión para el chofer
 const estimatedEarnings = computed(() => {
-  const price = parseFloat(formData.value.priceCharged) || 0;
-  const rate = props.employee?.commissionRate || 0;
-  return ((price * rate) / 100).toFixed(2);
+  const price = parseFloat(String(formData.value.priceCharged)) || 0;
+  const rate = activeDriver.value?.commissionRate || 25;
+  const val = (price * rate) / 100;
+  return val.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 });
 
 const handleSubmit = () => {
   errorMessage.value = '';
 
+  const driverId = props.isAdmin 
+    ? (Number(formData.value.driverId) || props.employee?.id)
+    : props.employee?.id;
+
+  if (!driverId) {
+    errorMessage.value = 'Por favor selecciona el chofer responsable.';
+    return;
+  }
+  if (!formData.value.clientReference.trim()) {
+    errorMessage.value = 'La Referencia del Cliente es obligatoria.';
+    return;
+  }
   if (!formData.value.serviceTypeId) {
-    errorMessage.value = 'Por favor selecciona un tipo de servicio o ruta.';
+    errorMessage.value = 'Por favor selecciona el Tipo de Servicio.';
     return;
   }
-  if (!formData.value.clientName.trim()) {
-    errorMessage.value = 'El nombre del cliente es obligatorio.';
+  if (!formData.value.description.trim()) {
+    errorMessage.value = 'Por favor describe el servicio realizado.';
     return;
   }
-  const price = parseFloat(formData.value.priceCharged);
+  const price = parseFloat(String(formData.value.priceCharged));
   if (isNaN(price) || price <= 0) {
-    errorMessage.value = 'El monto cobrado debe ser un valor válido mayor a 0.';
+    errorMessage.value = 'El Precio del Servicio debe ser mayor a 0.';
     return;
   }
 
   const payload = {
-    employeeId: props.employee.id,
+    driverId: Number(driverId),
+    employeeId: Number(driverId),
     serviceTypeId: Number(formData.value.serviceTypeId),
-    clientName: formData.value.clientName.trim(),
-    clientAddress: formData.value.clientAddress.trim(),
-    clientPhone: formData.value.clientPhone.trim(),
+    clientReference: formData.value.clientReference.trim(),
+    clientName: formData.value.clientReference.trim(),
+    description: formData.value.description.trim(),
     serviceDate: new Date(formData.value.serviceDate).toISOString(),
     priceCharged: price,
     notes: formData.value.notes.trim()
@@ -101,9 +128,9 @@ const handleSubmit = () => {
       <div class="modal-header">
         <div class="header-titles">
           <div class="badge-tag">🚐 Transporte Tito</div>
-          <h2 class="modal-title">Registrar Nuevo Viaje / Servicio</h2>
+          <h2 class="modal-title">Registrar Servicio</h2>
           <p class="modal-subtitle">
-            Chofer: <strong>{{ employee.fullName }}</strong> (Tasa: {{ employee.commissionRate }}%)
+            Formulario oficial de registro de servicios y viajes
           </p>
         </div>
         <button class="btn-close" @click="$emit('close')" aria-label="Cerrar">&times;</button>
@@ -116,63 +143,73 @@ const handleSubmit = () => {
           <span>{{ errorMessage }}</span>
         </div>
 
-        <!-- Tipo de Servicio / Ruta -->
+        <!-- 1. Chofer / Conductor (* Elegir) -->
+        <div class="form-group" v-if="isAdmin && drivers && drivers.length > 0">
+          <label class="form-label">Chofer Asignado *</label>
+          <select 
+            v-model="formData.driverId" 
+            class="form-control"
+            required
+          >
+            <option value="" disabled>Elegir Chofer...</option>
+            <option v-for="d in drivers" :key="d.id" :value="d.id">
+              {{ d.fullName }} ({{ d.code || 'ID: ' + d.id }}) — Comisión: {{ d.commissionRate || 25 }}%
+            </option>
+          </select>
+        </div>
+        <div v-else class="driver-fixed-pill">
+          <span class="label">Chofer:</span>
+          <span class="name">{{ activeDriver?.fullName || employee?.fullName || 'Chofer Activo' }}</span>
+          <span class="rate-badge">{{ activeDriver?.commissionRate || 25 }}% Comisión</span>
+        </div>
+
+        <!-- 2. Referencia / Cliente * -->
         <div class="form-group">
-          <label class="form-label">Tipo de Servicio / Ruta *</label>
+          <label class="form-label">Referencia / Cliente *</label>
+          <input 
+            v-model="formData.clientReference"
+            type="text" 
+            class="form-control" 
+            placeholder="Nombre del cliente, empresa o número de referencia" 
+            required
+          />
+        </div>
+
+        <!-- 3. TIPO DE SERVICIO * -->
+        <div class="form-group">
+          <label class="form-label">Tipo de Servicio *</label>
           <select 
             class="form-control" 
             :value="formData.serviceTypeId" 
             @change="onServiceTypeChange"
             required
           >
-            <option value="" disabled>Selecciona la ruta o servicio</option>
+            <option value="" disabled>Elegir tipo de servicio...</option>
             <option v-for="st in serviceTypes" :key="st.id" :value="st.id">
-              {{ st.name }} ({{ st.category }}) — Base: ${{ st.defaultPrice }}
+              {{ st.name }} ({{ st.category }}) — Base: RD$ {{ ((st as any).defaultPrice || (st as any).basePrice || 0).toLocaleString('es-DO') }}
             </option>
           </select>
-          <p v-if="serviceTypes.length === 0" class="field-hint">
-            * No hay rutas activas. Puedes crearlas en la pestaña "Catálogo de Rutas".
+          <p v-if="!serviceTypes || serviceTypes.length === 0" class="field-hint">
+            * No hay rutas activas en el catálogo.
           </p>
         </div>
 
-        <!-- Cliente -->
+        <!-- 4. DESCRIBA EL SERVICIO REALIZADO * -->
         <div class="form-group">
-          <label class="form-label">Nombre del Cliente / Empresa *</label>
-          <input 
-            v-model="formData.clientName"
-            type="text" 
+          <label class="form-label">Describa el Servicio Realizado *</label>
+          <textarea 
+            v-model="formData.description"
             class="form-control" 
-            placeholder="Ej: Lic. Carlos Pérez / Grupo Ramos" 
+            rows="2" 
+            placeholder="Indica el origen, destino, paradas o detalle del servicio completado..."
             required
-          />
+          ></textarea>
         </div>
 
-        <!-- Origen y Destino -->
-        <div class="form-row">
-          <div class="form-group flex-2">
-            <label class="form-label">Ruta / Origen - Destino</label>
-            <input 
-              v-model="formData.clientAddress"
-              type="text" 
-              class="form-control" 
-              placeholder="Ej: Santo Domingo -> Santiago (Los Jardines)" 
-            />
-          </div>
-          <div class="form-group flex-1">
-            <label class="form-label">Teléfono Cliente</label>
-            <input 
-              v-model="formData.clientPhone"
-              type="tel" 
-              class="form-control" 
-              placeholder="+1 (809)..." 
-            />
-          </div>
-        </div>
-
-        <!-- Fecha y Precio Cobrado -->
+        <!-- 5 y 6. FECHA DEL SERVICIO * y PRECIO DEL SERVICIO * -->
         <div class="form-row">
           <div class="form-group flex-1">
-            <label class="form-label">Fecha del Viaje *</label>
+            <label class="form-label">Fecha del Servicio *</label>
             <input 
               v-model="formData.serviceDate"
               type="date" 
@@ -181,45 +218,48 @@ const handleSubmit = () => {
             />
           </div>
           <div class="form-group flex-1">
-            <label class="form-label">Monto Cobrado ($) *</label>
-            <input 
-              v-model="formData.priceCharged"
-              type="number" 
-              step="0.01" 
-              min="0.01" 
-              class="form-control price-input" 
-              placeholder="0.00" 
-              required
-            />
+            <label class="form-label">Precio del Servicio (RD$) *</label>
+            <div class="price-input-wrapper">
+              <span class="currency-prefix">RD$</span>
+              <input 
+                v-model="formData.priceCharged"
+                type="number" 
+                step="0.01" 
+                min="0.01" 
+                class="form-control price-input with-prefix" 
+                placeholder="0.00" 
+                required
+              />
+            </div>
           </div>
         </div>
 
-        <!-- Caja de Cálculo en Vivo de Acumulados -->
+        <!-- Caja de Cálculo en Vivo de Comisión para el Chofer -->
         <div class="earnings-preview-card">
           <div class="preview-header">
-            <span class="preview-badge">Cálculo de Comisión en Tiempo Real</span>
-            <span class="rate-tag">{{ employee.commissionRate }}% Asignado</span>
+            <span class="preview-badge">Comisión en Tiempo Real</span>
+            <span class="rate-tag">{{ activeDriver?.commissionRate || 25 }}% Chofer</span>
           </div>
           <div class="preview-body">
             <div class="preview-amount">
-              <span class="currency">$</span>
+              <span class="currency">RD$</span>
               <span class="val">{{ estimatedEarnings }}</span>
             </div>
             <p class="preview-desc">
-              Esta es la ganancia que sumarás directamente a tu <strong>Total Acumulado</strong> al completar este viaje.
+              Esta es la ganancia neta directa que se sumará al historial de comisiones de <strong>{{ activeDriver?.fullName || 'chofer' }}</strong>.
             </p>
           </div>
         </div>
 
-        <!-- Notas / Observaciones -->
+        <!-- Observaciones / Notas Adicionales (Opcional) -->
         <div class="form-group">
-          <label class="form-label">Observaciones del Viaje</label>
-          <textarea 
+          <label class="form-label">Observaciones Adicionales (Opcional)</label>
+          <input 
             v-model="formData.notes"
+            type="text"
             class="form-control" 
-            rows="2" 
-            placeholder="Detalles de paradas, peajes, condiciones de entrega o retorno..."
-          ></textarea>
+            placeholder="Peajes, número de guía, condiciones especiales..."
+          />
         </div>
 
         <!-- Botones de Acción -->
@@ -228,8 +268,8 @@ const handleSubmit = () => {
             Cancelar
           </button>
           <button type="submit" class="btn btn-primary" :disabled="loading">
-            <span v-if="loading">Guardando viaje...</span>
-            <span v-else>Confirmar y Registrar Viaje</span>
+            <span v-if="loading">Registrando...</span>
+            <span v-else>Guardar Servicio</span>
           </button>
         </div>
       </form>
@@ -304,6 +344,58 @@ const handleSubmit = () => {
 
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
+
+.driver-fixed-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.driver-fixed-pill .label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.driver-fixed-pill .name {
+  font-weight: 700;
+  color: #ffffff;
+  font-size: 0.95rem;
+}
+
+.driver-fixed-pill .rate-badge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--brand-green-light);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+}
+
+.price-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currency-prefix {
+  position: absolute;
+  left: 14px;
+  font-weight: 700;
+  color: var(--brand-green-light);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.price-input.with-prefix {
+  padding-left: 54px;
+}
 
 .price-input {
   font-family: var(--font-heading);

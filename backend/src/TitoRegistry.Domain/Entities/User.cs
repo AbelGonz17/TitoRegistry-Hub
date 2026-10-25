@@ -18,6 +18,7 @@ public class User : BaseEntity
     public string Department { get; private set; } = "Operaciones";
     public decimal CommissionRate { get; private set; } = 25.0m;
     public bool IsActive { get; private set; } = true;
+    public bool MustChangePassword { get; private set; } = true;
 
     // Relaciones de navegación
     private readonly List<ServiceRecord> _serviceRecords = new();
@@ -43,7 +44,8 @@ public class User : BaseEntity
         string phone,
         UserRole role,
         string department,
-        decimal commissionRate)
+        decimal commissionRate,
+        bool mustChangePassword = true)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("El nombre del usuario es obligatorio.", nameof(fullName));
@@ -64,6 +66,19 @@ public class User : BaseEntity
         CommissionRate = commissionRate < 0 ? 0 : commissionRate;
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Actualiza la contraseña encriptada del usuario.
+    /// </summary>
+    /// <summary>
+    /// Completa el cambio obligatorio de contraseña en el primer acceso.
+    /// </summary>
+    public void CompleteFirstPasswordChange(string newPasswordHash)
+    {
+        SetPasswordHash(newPasswordHash);
+        MustChangePassword = false;
+        UpdatedAt = DateTime.UtcNow;
     }
 
     /// <summary>

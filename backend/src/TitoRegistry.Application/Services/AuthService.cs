@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Domain.Entities;
+using TitoRegistry.Domain.Enums;
 
 namespace TitoRegistry.Application.Services;
 
@@ -45,7 +46,7 @@ public class AuthService : IAuthService
                     email: cleanEmail,
                     passwordHash: passwordHash,
                     phone: "",
-                    role: TitoRegistry.Domain.Enums.UserRole.SuperAdmin,
+                    role: UserRole.SuperAdmin,
                     department: "Dirección General & Propietario",
                     commissionRate: 0
                 );
@@ -89,6 +90,28 @@ public class AuthService : IAuthService
         return user != null ? MapToDto(user) : null;
     }
 
+    public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken);
+
+        if (user == null)
+            throw new KeyNotFoundException("No se encontró el usuario solicitado.");
+
+        bool isCurrentValid = _passwordHasher.VerifyPassword(dto.CurrentPassword, user.PasswordHash);
+        if (!isCurrentValid)
+            throw new UnauthorizedAccessException("La contraseña actual es incorrecta.");
+
+        if (string.IsNullOrWhiteSpace(dto.NewPassword) || dto.NewPassword.Length < 6)
+            throw new ArgumentException("La nueva contraseña debe tener al menos 6 caracteres.");
+
+        string newHash = _passwordHasher.HashPassword(dto.NewPassword);
+        user.CompleteFirstPasswordChange(newHash);
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private static UserDto MapToDto(User user) => new()
     {
         Id = user.Id,
@@ -100,7 +123,8 @@ public class AuthService : IAuthService
         Department = user.Department,
         CommissionRate = user.CommissionRate,
         IsActive = user.IsActive,
-        IsSuperAdmin = user.Role == TitoRegistry.Domain.Enums.UserRole.SuperAdmin,
+        IsSuperAdmin = user.Role == UserRole.SuperAdmin,
+        MustChangePassword = user.MustChangePassword,
         CreatedAt = user.CreatedAt
     };
 }

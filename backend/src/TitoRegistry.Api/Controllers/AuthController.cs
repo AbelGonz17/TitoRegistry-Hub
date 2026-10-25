@@ -7,7 +7,7 @@ using TitoRegistry.Application.Services;
 namespace TitoRegistry.Api.Controllers;
 
 /// <summary>
-/// Controlador de autenticación y emisión de tokens JWT.
+/// Controlador de autenticación, emisión de tokens JWT, seguridad del usuario y cierre de sesión.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -26,16 +26,6 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Inicia sesión y genera un Token JWT firmado con los claims del usuario.
     /// </summary>
-    /// <remarks>
-    /// Si el sistema se inicia por primera vez y no existe ningún usuario registrado,
-    /// el primer inicio de sesión se aprovisiona automáticamente como SuperAdmin.
-    /// </remarks>
-    /// <param name="request">Credenciales de inicio de sesión.</param>
-    /// <param name="cancellationToken">Token de cancelación.</param>
-    /// <returns>Token JWT con tiempo de expiración y perfil del usuario autenticado.</returns>
-    /// <response code="200">Inicio de sesión exitoso con token JWT generado.</response>
-    /// <response code="400">Datos de solicitud inválidos.</response>
-    /// <response code="401">Credenciales incorrectas o cuenta inactiva.</response>
     [HttpPost("login")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
@@ -65,11 +55,6 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Obtiene el perfil del usuario autenticado a partir del Token Bearer actual.
     /// </summary>
-    /// <param name="cancellationToken">Token de cancelación.</param>
-    /// <returns>Información del usuario en sesión.</returns>
-    /// <response code="200">Perfil del usuario autenticado.</response>
-    /// <response code="401">No autorizado (Token faltante o expirado).</response>
-    /// <response code="404">Usuario no encontrado.</response>
     [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
@@ -90,5 +75,73 @@ public class AuthController : ControllerBase
             return NotFound(new { message = "El usuario asociado a este token no existe o fue dado de baja." });
 
         return Ok(user);
+    }
+
+    /// <summary>
+    /// Cambia la contraseña del usuario actualmente autenticado validando su contraseña actual.
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        var subClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? User.FindFirst("sub")?.Value;
+
+        if (string.IsNullOrWhiteSpace(subClaim) || !int.TryParse(subClaim, out int userId))
+        {
+            return Unauthorized(new { message = "Token de autenticación inválido o sin identificador de usuario." });
+        }
+
+        try
+        {
+            await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
+            return Ok(new { success = true, message = "Contraseña actualizada exitosamente." });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { success = false, message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { success = false, message = ex.Message });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { success = false, message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar la contraseña del usuario {UserId}", userId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { success = false, message = "Ocurrió un error interno al actualizar la contraseña." });
+        }
+    }
+
+    /// <summary>
+    /// Cierra la sesión del usuario autenticado en el servidor y registra la desconexión.
+    /// </summary>
+    /// <returns>Confirmación de cierre de sesión exitoso.</returns>
+    /// <response code="200">Sesión cerrada exitosamente.</response>
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult Logout()
+    {
+        var userEmail = User.FindFirst(ClaimTypes.Email)?.Value 
+            ?? User.FindFirst("email")?.Value 
+            ?? "Usuario";
+
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            ?? User.FindFirst("sub")?.Value 
+            ?? "N/A";
+
+        _logger.LogInformation("Usuario {Email} (ID: {UserId}) cerró sesión exitosamente.", userEmail, userId);
+
+        return Ok(new { success = true, message = "Sesión cerrada exitosamente." });
     }
 }

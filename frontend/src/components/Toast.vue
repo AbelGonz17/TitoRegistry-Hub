@@ -1,13 +1,13 @@
-<script setup>
-defineProps({
-  show: Boolean,
-  message: String,
-  type: {
-    type: String,
-    default: 'success' // 'success' | 'error' | 'info'
-  }
-});
-defineEmits(['close']);
+<script setup lang="ts">
+defineProps<{
+  show: boolean;
+  message?: string;
+  type?: 'success' | 'error' | 'info' | 'warning' | string;
+}>();
+
+defineEmits<{
+  (e: 'close'): void;
+}>();
 </script>
 
 <template>

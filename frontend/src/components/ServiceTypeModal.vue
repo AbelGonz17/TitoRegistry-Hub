@@ -1,16 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { ref, watch } from 'vue';
+import type { ServiceType } from '../types';
 
-const props = defineProps({
-  show: Boolean,
-  serviceType: {
-    type: Object,
-    default: null
-  },
-  loading: Boolean
-});
+const props = defineProps<{
+  show: boolean;
+  serviceType?: ServiceType | null;
+  loading?: boolean;
+}>();
 
-const emit = defineEmits(['close', 'submit']);
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'submit', payload: Partial<ServiceType>): void;
+}>();
 
 const formData = ref({
   name: '',

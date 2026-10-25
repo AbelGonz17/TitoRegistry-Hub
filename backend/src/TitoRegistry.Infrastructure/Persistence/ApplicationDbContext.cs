@@ -50,6 +50,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(u => u.Role).HasConversion<string>().HasMaxLength(50);
             entity.Property(u => u.Department).HasMaxLength(100);
             entity.Property(u => u.CommissionRate).HasPrecision(5, 2);
+            entity.Property(u => u.MustChangePassword).HasDefaultValue(true);
 
             entity.HasMany(u => u.ServiceRecords)
                   .WithOne(s => s.Driver)
@@ -204,7 +205,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         {
             Id = 1,
             Code = "ADM-001",
-            FullName = "Tito González",
+            FullName = "Abel González",
             Email = "admin@titotransporte.com",
             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a", // Password: Admin123!
             Phone = "+1 (809) 555-0100",
@@ -212,6 +213,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Dirección General & Propietario",
             CommissionRate = 0m,
             IsActive = true,
+            MustChangePassword = false,
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
@@ -231,6 +233,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Transporte Urbano e Interurbano",
             CommissionRate = 25.0m,
             IsActive = true,
+            MustChangePassword = false,
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 10, 0, 0, 0, DateTimeKind.Utc),
@@ -249,6 +252,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             Department = "Rutas Fijas Corporativas",
             CommissionRate = 25.0m,
             IsActive = true,
+            MustChangePassword = false,
             IsDeleted = false,
             DeletedAt = (DateTime?)null,
             CreatedAt = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc),

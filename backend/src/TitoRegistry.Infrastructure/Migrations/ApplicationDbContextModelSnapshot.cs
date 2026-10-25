@@ -613,6 +613,11 @@ namespace TitoRegistry.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("MustChangePassword")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -650,9 +655,10 @@ namespace TitoRegistry.Infrastructure.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Department = "Dirección General & Propietario",
                             Email = "admin@titotransporte.com",
-                            FullName = "Tito González",
+                            FullName = "Abel González",
                             IsActive = true,
                             IsDeleted = false,
+                            MustChangePassword = false,
                             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
                             Phone = "+1 (809) 555-0100",
                             Role = "SuperAdmin"
@@ -668,6 +674,7 @@ namespace TitoRegistry.Infrastructure.Migrations
                             FullName = "Browel",
                             IsActive = true,
                             IsDeleted = false,
+                            MustChangePassword = false,
                             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
                             Phone = "+1 (809) 555-0101",
                             Role = "Chofer"
@@ -683,6 +690,7 @@ namespace TitoRegistry.Infrastructure.Migrations
                             FullName = "Denny",
                             IsActive = true,
                             IsDeleted = false,
+                            MustChangePassword = false,
                             PasswordHash = "$2a$11$lzkTanuFle3ZoE9lYVea.erqLqWX8aW.hRRj0S/RiQ2v.G0NofU.a",
                             Phone = "+1 (809) 555-0102",
                             Role = "Chofer"

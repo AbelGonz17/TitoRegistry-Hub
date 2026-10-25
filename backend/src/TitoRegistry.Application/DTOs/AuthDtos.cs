@@ -34,6 +34,7 @@ public class UserDto
     public decimal CommissionRate { get; set; }
     public bool IsActive { get; set; }
     public bool IsSuperAdmin { get; set; }
+    public bool MustChangePassword { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -47,13 +48,14 @@ public class CreateUserDto
     [EmailAddress(ErrorMessage = "Formato de correo inválido.")]
     public string Email { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "La contraseña es obligatoria.")]
-    [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres.")]
-    public string Password { get; set; } = string.Empty;
+    /// <summary>
+    /// Opcional: Si se deja en blanco, la contraseña inicial será el código asignado (ej: CHO-007)
+    /// </summary>
+    public string? Password { get; set; }
 
     public string Phone { get; set; } = string.Empty;
 
-    public string Role { get; set; } = "Chofer"; // SuperAdmin, Administrador, Chofer
+    public string Role { get; set; } = "Chofer"; // SuperAdmin, Admin, Chofer
 
     public string Department { get; set; } = "Operaciones";
 
@@ -78,4 +80,17 @@ public class UpdateUserDto
     public decimal CommissionRate { get; set; } = 25.0m;
 
     public bool IsActive { get; set; } = true;
+}
+
+/// <summary>
+/// DTO para el cambio de contraseña de un usuario autenticado.
+/// </summary>
+public class ChangePasswordDto
+{
+    [Required(ErrorMessage = "La contraseña actual es obligatoria.")]
+    public string CurrentPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "La nueva contraseña es obligatoria.")]
+    [MinLength(6, ErrorMessage = "La nueva contraseña debe tener al menos 6 caracteres.")]
+    public string NewPassword { get; set; } = string.Empty;
 }
