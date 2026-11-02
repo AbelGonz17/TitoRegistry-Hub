@@ -43,6 +43,16 @@ const isAdmin = computed(() => {
         <span class="text-[11px] font-heading font-semibold">Servicios</span>
       </button>
 
+      <!-- 2. Servicios por Chofer (Solo para Administradores) -->
+      <button 
+        v-if="isAdmin"
+        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'admin-services' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
+        @click="$emit('change-tab', 'admin-services')"
+      >
+        <span class="text-xl leading-none">🚐</span>
+        <span class="text-[11px] font-heading font-semibold">Choferes</span>
+      </button>
+
       <!-- 2. Catálogo (Solo para Administradores) -->
       <button 
         v-if="isAdmin"

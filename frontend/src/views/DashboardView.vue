@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { User, Service, EmployeeSummary } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const props = defineProps<{
   employeeSummary?: EmployeeSummary;
@@ -10,14 +12,18 @@ const props = defineProps<{
   drivers?: User[];
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'open-new-service'): void;
   (e: 'refresh'): void;
+  (e: 'notify', message: string, type?: string): void;
 }>();
 
 const searchQuery = ref('');
-const activeFilter = ref('todos'); // 'todos' | 'hoy' | 'semana' | 'mes'
+const activeFilter = ref('todos'); // 'todos' | 'hoy' | 'semana' | 'mes' | 'rango'
 const selectedDriverId = ref('all'); // 'all' | id del chofer
+const customDateFrom = ref('');
+const customDateTo = ref('');
+const exportingPdf = ref(false);
 
 // Determinar si el usuario autenticado es Administrador / SuperAdmin
 const isAdmin = computed(() => {
@@ -58,6 +64,13 @@ const filteredServices = computed(() => {
     const monthAgo = new Date();
     monthAgo.setMonth(now.getMonth() - 1);
     list = list.filter(s => new Date(s.serviceDate) >= monthAgo);
+  } else if (activeFilter.value === 'rango') {
+    if (customDateFrom.value) {
+      list = list.filter(s => (s.serviceDate || '').slice(0, 10) >= customDateFrom.value);
+    }
+    if (customDateTo.value) {
+      list = list.filter(s => (s.serviceDate || '').slice(0, 10) <= customDateTo.value);
+    }
   }
 
   // Filtro de búsqueda por cliente, ruta, chofer o código
@@ -141,6 +154,172 @@ const formatDate = (dateStr) => {
     month: 'short',
     year: 'numeric'
   });
+};
+
+// Generar informe oficial de servicios en PDF por chofer o flota completa
+const exportDriverServicesReport = () => {
+  if (filteredServices.value.length === 0) return;
+
+  try {
+    exportingPdf.value = true;
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const isAllDrivers = selectedDriverId.value === 'all';
+    const driverLabel = selectedDriverLabel.value;
+    const selectedDriverObj = driversList.value.find(d => d.id === Number(selectedDriverId.value));
+    const driverCode = selectedDriverObj?.code || (isAllDrivers ? 'FLOTA COMPLETA' : 'CHO');
+
+    let periodText = 'Histórico Completo';
+    if (activeFilter.value === 'hoy') periodText = 'Hoy';
+    else if (activeFilter.value === 'semana') periodText = 'Últimos 7 días';
+    else if (activeFilter.value === 'mes') periodText = 'Este Mes';
+    else if (activeFilter.value === 'rango') {
+      periodText = `Del ${customDateFrom.value || 'inicio'} al ${customDateTo.value || 'hoy'}`;
+    }
+
+    // Encabezado institucional
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(21, 128, 61); // Verde institucional
+    doc.text('TRANSPORTE TITO', 14, 15);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(110, 110, 110);
+    doc.text('"Servirle es nuestra prioridad" — R.D.', 14, 20);
+
+    // Título del reporte
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(20, 20, 20);
+    const title = isAllDrivers 
+      ? 'INFORME DE SERVICIOS — FLOTA COMPLETA' 
+      : `INFORME DE SERVICIOS REALIZADOS — ${driverLabel.toUpperCase()}`;
+    doc.text(title, 14, 28);
+
+    // Metadatos del informe
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(70, 70, 70);
+    doc.text(`Conductor: ${driverLabel} (${driverCode})`, 14, 34);
+    doc.text(`Período Consultado: ${periodText}`, 14, 39);
+
+    const nowStr = new Date().toLocaleString('es-DO', { 
+      day: '2-digit', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    doc.text(`Fecha de Emisión: ${nowStr}`, 175, 34);
+    doc.text(`Generado por: ${props.currentUser?.fullName || 'Administración'}`, 175, 39);
+
+    // Caja resumen
+    doc.setFillColor(243, 248, 245);
+    doc.setDrawColor(187, 222, 201);
+    doc.roundedRect(14, 43, 269, 12, 2, 2, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(30, 30, 30);
+    doc.text(`Total de Servicios: ${filteredServices.value.length} viajes`, 20, 50.5);
+
+    doc.setTextColor(21, 128, 61);
+    doc.text(
+      `Total Facturado / Cobrado: RD$ ${totalBilledServices.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      175,
+      50.5
+    );
+
+    // Datos de la tabla
+    const tableData = filteredServices.value.map((s, index) => [
+      index + 1,
+      s.serviceCode || `#${s.id}`,
+      formatDate(s.serviceDate),
+      s.driverName || s.employeeName || driverLabel,
+      getClientName(s),
+      s.serviceTypeName || 'Servicio',
+      s.description || '-',
+      s.notes || '-',
+      `RD$ ${(Number(s.priceCharged) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ]);
+
+    autoTable(doc, {
+      startY: 59,
+      head: [[
+        '#',
+        'CÓDIGO',
+        'FECHA',
+        'CHOFER',
+        'CLIENTE / EMPRESA',
+        'RUTA / SERVICIO',
+        'DETALLE DE SERVICIO',
+        'DIETAS / OBSERVACIONES',
+        'COBRADO'
+      ]],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [21, 128, 61],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'left'
+      },
+      bodyStyles: {
+        fontSize: 7.5,
+        textColor: [35, 35, 35]
+      },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 18, halign: 'center' },
+        2: { cellWidth: 20, halign: 'center' },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 34 },
+        5: { cellWidth: 34 },
+        6: { cellWidth: 52 },
+        7: { cellWidth: 46 },
+        8: { cellWidth: 29, halign: 'right', fontStyle: 'bold' }
+      },
+      foot: [[
+        { content: 'TOTAL GENERAL FACTURADO:', colSpan: 8, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8.5 } },
+        { content: `RD$ ${totalBilledServices.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, styles: { halign: 'right', fontStyle: 'bold', fontSize: 8.5, textColor: [21, 128, 61] } }
+      ]],
+      footStyles: {
+        fillColor: [238, 245, 241],
+        textColor: [0, 0, 0]
+      },
+      styles: {
+        overflow: 'linebreak',
+        cellPadding: 2
+      },
+      didDrawPage: (data) => {
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(140, 140, 140);
+        doc.text(
+          `Transporte Tito — Informe de Operaciones y Servicios — Página ${data.pageNumber} de ${pageCount}`,
+          14,
+          doc.internal.pageSize.height - 7
+        );
+      }
+    });
+
+    const safeName = driverLabel.replace(/[^a-zA-Z0-9]/g, '_');
+    const todayFile = new Date().toISOString().slice(0, 10);
+    doc.save(`Informe_Servicios_${safeName}_${todayFile}.pdf`);
+    emit('notify', `Informe de ${driverLabel} exportado exitosamente.`, 'success');
+  } catch (err: any) {
+    console.error('Error generando PDF:', err);
+    emit('notify', 'Hubo un inconveniente al generar el informe en PDF.', 'error');
+  } finally {
+    exportingPdf.value = false;
+  }
 };
 </script>
 
@@ -273,12 +452,28 @@ const formatDate = (dateStr) => {
     <!-- ======================================================== -->
     <div class="bg-brand-card border border-brand-border rounded-xl p-4 md:p-5 shadow-card">
       <div class="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3 border-b border-brand-border/40">
-        <!-- Título y Contador de Viajes + Botón Registrar Viaje -->
+        <!-- Título y Contador de Viajes + Botones de Acción -->
         <div class="flex items-center gap-2.5 flex-wrap">
-          <h2 class="text-base md:text-lg font-extrabold text-white font-heading tracking-tight">Historial de Viajes</h2>
+          <h2 class="text-base md:text-lg font-extrabold text-white font-heading tracking-tight">
+            {{ isAdmin ? 'Servicios de la Flota' : 'Historial de Viajes' }}
+          </h2>
           <span class="bg-brand-green/15 text-brand-green-light px-2.5 py-0.5 rounded-full text-xs font-bold border border-brand-green/20">
             {{ formatTripCount(filteredServices.length) }}
           </span>
+
+          <!-- Botón Sacar Informe PDF para el Administrador -->
+          <button 
+            v-if="isAdmin"
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-brand-green hover:from-emerald-500 hover:to-brand-green-light text-white text-xs font-heading font-bold rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="exportDriverServicesReport"
+            :disabled="filteredServices.length === 0 || exportingPdf"
+            :title="filteredServices.length === 0 ? 'No hay servicios para exportar' : 'Descargar informe oficial en PDF'"
+          >
+            <span>{{ exportingPdf ? '⏳' : '📄' }}</span>
+            <span>{{ exportingPdf ? 'Generando...' : `Sacar Informe PDF (${selectedDriverLabel})` }}</span>
+          </button>
+
           <button 
             v-if="!isAdmin"
             type="button"
@@ -336,10 +531,33 @@ const formatDate = (dateStr) => {
             >
               Mes
             </button>
+            <button 
+              :class="['px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer', activeFilter === 'rango' ? 'bg-brand-green text-white shadow-sm' : 'text-slate-400 hover:text-white']" 
+              @click="activeFilter = 'rango'"
+            >
+              Rango
+            </button>
+          </div>
+
+          <!-- Rango de fechas condicional -->
+          <div v-if="activeFilter === 'rango'" class="flex items-center gap-1 bg-brand-charcoal border border-brand-border rounded-lg px-2 py-1 text-xs">
+            <input 
+              v-model="customDateFrom" 
+              type="date" 
+              class="bg-transparent text-white text-xs outline-none cursor-pointer"
+              title="Fecha inicial"
+            />
+            <span class="text-slate-500 text-[10px]">a</span>
+            <input 
+              v-model="customDateTo" 
+              type="date" 
+              class="bg-transparent text-white text-xs outline-none cursor-pointer"
+              title="Fecha final"
+            />
           </div>
 
           <!-- Campo de búsqueda por cliente o ruta -->
-          <div class="relative flex items-center min-w-[200px] md:min-w-[240px]">
+          <div class="relative flex items-center min-w-[170px] md:min-w-[210px]">
             <span class="absolute left-2.5 text-xs opacity-60">🔍</span>
             <input 
               v-model="searchQuery" 
@@ -388,9 +606,11 @@ const formatDate = (dateStr) => {
               <th class="py-2.5 px-3">Fecha</th>
               <th class="py-2.5 px-3">Cliente</th>
               <th class="py-2.5 px-3">Ruta / Servicio</th>
+              <th class="py-2.5 px-3">Dietas / Observaciones</th>
               <th class="py-2.5 px-3">Estado</th>
               <th class="py-2.5 px-3 text-right">Cobrado</th>
-              <th class="py-2.5 px-3 text-right">{{ isAdmin ? 'Comisión Chofer' : 'Tu Comisión' }}</th>
+              <!-- Oculto temporalmente: Comisión -->
+              <!-- <th class="py-2.5 px-3 text-right">{{ isAdmin ? 'Comisión Chofer' : 'Tu Comisión' }}</th> -->
             </tr>
           </thead>
           <tbody class="divide-y divide-brand-border/20 text-xs">
@@ -416,6 +636,12 @@ const formatDate = (dateStr) => {
                 <div v-if="getServiceRoute(srv)" class="text-[11px] text-slate-400 truncate max-w-xs">📍 {{ getServiceRoute(srv) }}</div>
               </td>
               <td class="py-2.5 px-3">
+                <span v-if="srv.notes" class="inline-block text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-md px-2 py-0.5 max-w-xs truncate" :title="srv.notes">
+                  {{ srv.notes }}
+                </span>
+                <span v-else class="text-[10px] text-slate-500 italic">-</span>
+              </td>
+              <td class="py-2.5 px-3">
                 <span :class="['status-badge', (srv.statusName || 'completado').toLowerCase()]">
                   {{ srv.statusName || 'Completado' }}
                 </span>
@@ -423,9 +649,12 @@ const formatDate = (dateStr) => {
               <td class="py-2.5 px-3 text-right font-heading font-semibold text-slate-200">
                 {{ formatMoney(srv.priceCharged) }}
               </td>
+              <!-- Oculto temporalmente: Comisión -->
+              <!--
               <td class="py-2.5 px-3 text-right font-heading font-bold text-brand-green-light">
                 {{ formatMoney(getServiceEarnings(srv), true) }}
               </td>
+              -->
             </tr>
           </tbody>
         </table>
@@ -463,6 +692,10 @@ const formatDate = (dateStr) => {
             <h3 class="text-xs font-bold text-white">{{ getClientName(srv) }}</h3>
             <p class="text-[11px] text-slate-300">🚐 {{ srv.serviceTypeName }}</p>
             <p v-if="getServiceRoute(srv)" class="text-[11px] text-slate-400 truncate">📍 {{ getServiceRoute(srv) }}</p>
+            <!-- Dietas y Observaciones en Móvil -->
+            <div v-if="srv.notes" class="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2 py-1 mt-1">
+              <span class="font-semibold text-amber-200">📝 Notas / Dietas:</span> {{ srv.notes }}
+            </div>
           </div>
 
           <!-- Fila Inferior con Etiquetas Explícitas de Montos -->
@@ -471,10 +704,13 @@ const formatDate = (dateStr) => {
               <span class="text-slate-400">Cobrado:</span>
               <span class="text-slate-200 font-heading font-semibold">{{ formatMoney(srv.priceCharged) }}</span>
             </div>
+            <!-- Oculto temporalmente: Tu comisión -->
+            <!--
             <div class="flex items-center gap-1">
               <span class="text-slate-400">Tu comisión:</span>
               <span class="text-brand-green-light font-heading font-bold">{{ formatMoney(getServiceEarnings(srv), true) }}</span>
             </div>
+            -->
           </div>
         </div>
       </div>

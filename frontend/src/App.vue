@@ -18,6 +18,7 @@ const router = useRouter();
 
 // Estado global de la aplicación sincronizado con Vue Router
 const currentTab = computed<string>(() => {
+  if (route.path.startsWith('/admin-services')) return 'admin-services';
   if (route.path.startsWith('/services')) return 'services';
   if (route.path.startsWith('/catalog')) return 'catalog';
   if (route.path.startsWith('/settlements')) return 'settlements';
@@ -274,13 +275,14 @@ const onTabChange = (newTab: string) => {
   const pathMap: Record<string, string> = {
     dashboard: '/dashboard',
     services: '/services',
+    'admin-services': '/admin-services',
     catalog: '/catalog',
     settlements: '/settlements',
     users: '/users',
     profile: '/profile'
   };
 
-  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users' || newTab === 'settlements')) {
+  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users' || newTab === 'settlements' || newTab === 'admin-services')) {
     router.push('/dashboard');
     return;
   }

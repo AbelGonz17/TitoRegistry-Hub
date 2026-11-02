@@ -5,6 +5,7 @@ import CatalogView from '../views/CatalogView.vue';
 import UsersView from '../views/UsersView.vue';
 import SettlementsView from '../views/SettlementsView.vue';
 import ProfileView from '../views/ProfileView.vue';
+import AdminServicesView from '../views/AdminServicesView.vue';
 import { getToken } from '../services/auth';
 
 const routes: RouteRecordRaw[] = [
@@ -31,6 +32,17 @@ const routes: RouteRecordRaw[] = [
       tabKey: 'services',
       icon: '🚐',
       driverOnly: true
+    }
+  },
+  {
+    path: '/admin-services',
+    name: 'admin-services',
+    component: AdminServicesView,
+    meta: {
+      title: 'Servicios por Chofer',
+      tabKey: 'admin-services',
+      icon: '🚐',
+      adminOnly: true
     }
   },
   {

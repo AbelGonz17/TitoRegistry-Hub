@@ -34,6 +34,11 @@ const currentSectionInfo = computed(() => {
         title: 'Mis Servicios',
         icon: '🚐'
       };
+    case 'admin-services':
+      return {
+        title: 'Servicios por Chofer',
+        icon: '🚐'
+      };
     case 'profile':
       return {
         title: 'Mi Perfil',
@@ -85,7 +90,7 @@ const currentSectionInfo = computed(() => {
           @click="$emit('change-tab', 'dashboard')"
         >
           <span>📊</span>
-          <span>{{ isAdmin ? 'Panel de Flota' : 'Mi Panel' }}</span>
+          <span>{{ isAdmin ? 'Servicios & Flota' : 'Mi Panel' }}</span>
         </button>
 
         <!-- Mis Servicios (Exclusivo Choferes) -->
@@ -96,6 +101,16 @@ const currentSectionInfo = computed(() => {
         >
           <span>🚐</span>
           <span>Mis Servicios</span>
+        </button>
+
+        <!-- Servicios por Chofer (Solo Administradores) -->
+        <button 
+          v-if="isAdmin"
+          :class="['px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer', currentTab === 'admin-services' ? 'bg-brand-green text-white shadow-sm shadow-brand-green/30' : 'text-slate-400 hover:text-white']"
+          @click="$emit('change-tab', 'admin-services')"
+        >
+          <span>🚐</span>
+          <span>Servicios por Chofer</span>
         </button>
 
         <!-- Catálogo de Rutas (Solo Administradores) -->
@@ -195,6 +210,14 @@ const currentSectionInfo = computed(() => {
 
             <button 
               v-if="isAdmin"
+              class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
+              @click="$emit('change-tab', 'admin-services'); showUserMenu = false"
+            >
+              <span>🚐</span>
+              <span>Servicios por Chofer</span>
+            </button>
+            <button 
+              v-if="currentUser.isSuperAdmin || currentUser.role === 'Administrador'"
               class="w-full text-left px-3 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-white/[0.05] rounded-xl flex items-center gap-2 transition-colors cursor-pointer" 
               @click="$emit('change-tab', 'users'); showUserMenu = false"
             >

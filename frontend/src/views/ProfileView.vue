@@ -150,15 +150,15 @@ const formatDate = (dateStr) => {
     <!-- ======================================================== -->
     <!-- 1. HERO / CABECERA DE PERFIL DEL USUARIO                 -->
     <!-- ======================================================== -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-card/95 via-brand-card to-brand-black/95 border border-brand-border p-5 md:p-6 shadow-card">
-      <div class="flex items-center justify-between flex-wrap gap-4">
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-card/95 via-brand-card to-brand-black/95 border border-brand-border p-4 sm:p-6 shadow-card">
+      <div class="flex items-center justify-between gap-4">
         <!-- Avatar y Datos Principales -->
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3.5 sm:gap-4 min-w-0">
           <!-- Selector de Avatar Interactivo -->
-          <div class="relative">
+          <div class="relative shrink-0">
             <button 
               type="button"
-              class="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-brand-green/20 border-2 border-brand-green/40 hover:border-brand-green-light flex items-center justify-center text-3xl md:text-4xl shadow-glow cursor-pointer transition-all hover:scale-105 active:scale-95"
+              class="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-brand-green/20 border-2 border-brand-green/40 hover:border-brand-green-light flex items-center justify-center text-3xl sm:text-4xl shadow-glow cursor-pointer transition-all hover:scale-105 active:scale-95"
               @click="showAvatarPicker = !showAvatarPicker"
               title="Cambiar avatar"
             >
@@ -184,51 +184,43 @@ const formatDate = (dateStr) => {
             </div>
           </div>
 
-          <!-- Nombre, Código y Rol -->
-          <div class="flex flex-col">
+          <!-- Nombre, Código, Rol y Metadata -->
+          <div class="flex flex-col min-w-0">
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="px-2 py-0.5 rounded-full font-mono text-[10px] font-bold bg-brand-green/20 text-brand-green-light border border-brand-green/30">
+              <span class="px-2.5 py-0.5 rounded-full font-mono text-[10px] sm:text-[11px] font-bold bg-brand-green/20 text-brand-green-light border border-brand-green/30">
                 {{ currentUser?.code || employeeSummary?.code || 'CHO-001' }}
               </span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/[0.06] border border-white/[0.1] text-slate-300">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-white/[0.06] border border-white/[0.1] text-slate-300">
                 {{ currentUser?.role || 'Chofer' }}
               </span>
-              <span v-if="currentUser?.commissionRate || employeeSummary?.commissionRate" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                Comisión: {{ currentUser?.commissionRate || employeeSummary?.commissionRate || 25 }}%
+              <!-- Cuenta Activa visible en la fila de badges en móvil -->
+              <span class="sm:hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-[10px] font-semibold text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Cuenta Activa
               </span>
             </div>
 
-            <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading leading-tight">
+            <h1 class="text-xl sm:text-2xl font-extrabold text-white font-heading leading-tight truncate">
               {{ currentUser?.fullName || employeeSummary?.fullName || 'Conductor Tito' }}
             </h1>
 
-            <p class="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-              <span>{{ currentUser?.department || employeeSummary?.department || 'Transporte Urbano e Interurbano' }}</span>
+            <p class="text-xs text-slate-400 mt-1 flex items-center gap-1.5 flex-wrap">
+              <span class="text-slate-300 font-medium">{{ currentUser?.department || employeeSummary?.department || 'Transporte Urbano e Interurbano' }}</span>
               <span class="opacity-40">•</span>
               <span>Activo desde {{ formatDate(currentUser?.createdAt) }}</span>
             </p>
           </div>
         </div>
 
-        <!-- Estado de Cuenta y Botón Cerrar Sesión -->
-        <div class="flex items-center gap-2.5">
-          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-green/10 border border-brand-green/25 text-xs font-semibold text-brand-green-light select-none">
+        <!-- Estado de Cuenta (Desktop: alineado a la derecha) -->
+        <div class="hidden sm:flex items-center shrink-0">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-green/10 border border-brand-green/25 text-xs font-semibold text-brand-green-light select-none">
             <span class="relative flex h-2 w-2">
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span>Cuenta Activa</span>
           </div>
-
-          <button 
-            type="button"
-            class="px-3.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 hover:text-red-200 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
-            @click="$emit('logout')"
-            title="Cerrar sesión"
-          >
-            <span>🚪</span>
-            <span class="hidden sm:inline">Cerrar Sesión</span>
-          </button>
         </div>
       </div>
     </div>
@@ -236,7 +228,7 @@ const formatDate = (dateStr) => {
     <!-- ======================================================== -->
     <!-- 2. INFORMACIÓN DEL CHOFER Y DETALLES OPERATIVOS          -->
     <!-- ======================================================== -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4">
       <!-- Tarjeta 1: Información Personal y de Contacto -->
       <div class="bg-brand-card border border-brand-border rounded-xl p-4 md:p-5 shadow-sm flex flex-col justify-between">
         <div>
@@ -306,7 +298,8 @@ const formatDate = (dateStr) => {
         </div>
       </div>
 
-      <!-- Tarjeta 2: Condiciones Operativas y Beneficios -->
+      <!-- Tarjeta 2: Condiciones Operativas y Beneficios (Oculto temporalmente) -->
+      <!--
       <div class="bg-brand-card border border-brand-border rounded-xl p-4 md:p-5 shadow-sm flex flex-col justify-between">
         <div>
           <div class="flex items-center gap-2 mb-4 pb-2 border-b border-brand-border/40">
@@ -338,6 +331,7 @@ const formatDate = (dateStr) => {
           💡 La tasa de comisión y los beneficios fijos son administrados por la Dirección General de Transporte Tito.
         </p>
       </div>
+      -->
     </div>
 
     <!-- ======================================================== -->

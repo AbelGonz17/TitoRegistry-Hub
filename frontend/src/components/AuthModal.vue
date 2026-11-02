@@ -56,12 +56,6 @@ const handleLogin = async () => {
     loading.value = false;
   }
 };
-
-const selectDemoAccount = (email, password = 'Admin123!') => {
-  loginForm.value.email = email;
-  loginForm.value.password = password;
-  errorMessage.value = '';
-};
 </script>
 
 <template>
@@ -96,44 +90,7 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
 
         <!-- FORMULARIO DE INICIO DE SESIÓN -->
         <form @submit.prevent="handleLogin" class="auth-form">
-          <!-- Cuentas de Acceso Rápido para Pruebas -->
-          <div class="demo-accounts-card">
-            <span class="demo-title">Acceso rápido por perfil (Contraseña: Admin123!):</span>
-            <div class="demo-buttons">
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('admin@titotransporte.com')"
-                title="SuperAdmin / Propietario"
-              >
-                👑 SuperAdmin
-              </button>
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('administracion@titotransporte.com')"
-                title="Administración y Nómina"
-              >
-                👔 Admin
-              </button>
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('browel@titotransporte.com')"
-                title="Chofer Browel (25%)"
-              >
-                🚐 Browel
-              </button>
-              <button 
-                type="button" 
-                class="demo-chip"
-                @click="selectDemoAccount('denny@titotransporte.com')"
-                title="Chofer Denny (25%)"
-              >
-                🚐 Denny
-              </button>
-            </div>
-          </div>
+
           <div class="form-group">
             <label class="form-label" for="login-email">Correo Electrónico / Usuario</label>
             <div class="input-wrapper">
@@ -244,49 +201,6 @@ const selectDemoAccount = (email, password = 'Admin123!') => {
   cursor: pointer;
   transition: color var(--transition-fast);
   padding: 4px;
-}
-
-.demo-accounts-card {
-  margin-bottom: 20px;
-  padding: 12px 14px;
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-  border-radius: var(--radius-md);
-}
-
-.demo-title {
-  display: block;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 600;
-}
-
-.demo-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.demo-chip {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--brand-border);
-  color: var(--text-main);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.demo-chip:hover {
-  background: var(--brand-green);
-  color: #0b1510;
-  border-color: var(--brand-green);
-  font-weight: 600;
-  transform: translateY(-1px);
 }
 
 .auth-close-btn:hover {

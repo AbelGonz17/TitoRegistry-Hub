@@ -215,8 +215,9 @@ const formatDate = (dateStr) => {
       </div>
 
       <!-- ======================================================== -->
-      <!-- 3. TARJETA PRINCIPAL DESTACADA: TU GANANCIA              -->
+      <!-- 3 y 4. TARJETAS DE GANANCIA, VIAJES Y FACTURADO (Ocultas temporalmente) -->
       <!-- ======================================================== -->
+      <!--
       <div class="bg-gradient-to-br from-green-950/40 via-brand-card to-brand-card border border-brand-green/40 hover:border-brand-green-light/50 rounded-2xl p-4 md:p-5 shadow-card transition-all">
         <div class="flex items-center justify-between gap-2 mb-1.5">
           <div class="flex items-center gap-2">
@@ -242,11 +243,7 @@ const formatDate = (dateStr) => {
         </div>
       </div>
 
-      <!-- ======================================================== -->
-      <!-- 4. FILA DE 2 TARJETAS SECUNDARIAS: VIAJES Y FACTURADO    -->
-      <!-- ======================================================== -->
       <div class="grid grid-cols-2 gap-2.5 md:gap-3">
-        <!-- Tarjeta 1: Viajes Realizados -->
         <div class="bg-brand-card border border-brand-border hover:border-brand-border-strong rounded-xl p-3 md:p-3.5 shadow-sm flex flex-col justify-between transition-all">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Viajes</span>
@@ -262,7 +259,6 @@ const formatDate = (dateStr) => {
           </div>
         </div>
 
-        <!-- Tarjeta 2: Total Facturado -->
         <div class="bg-brand-card border border-brand-border hover:border-brand-border-strong rounded-xl p-3 md:p-3.5 shadow-sm flex flex-col justify-between transition-all">
           <div class="flex items-center justify-between gap-1 mb-1">
             <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Facturado</span>
@@ -278,6 +274,7 @@ const formatDate = (dateStr) => {
           </div>
         </div>
       </div>
+      -->
 
       <!-- ======================================================== -->
       <!-- 5. LISTA DE SERVICIOS REGISTRADOS                        -->
@@ -330,7 +327,8 @@ const formatDate = (dateStr) => {
                 <th class="py-2.5 px-3">Ruta / Servicio</th>
                 <th class="py-2.5 px-3">Estado</th>
                 <th class="py-2.5 px-3 text-right">Cobrado</th>
-                <th class="py-2.5 px-3 text-right">Tu Ganancia</th>
+                <!-- Oculto temporalmente: Tu Ganancia -->
+                <!-- <th class="py-2.5 px-3 text-right">Tu Ganancia</th> -->
               </tr>
             </thead>
             <tbody class="divide-y divide-brand-border/20 text-xs">
@@ -357,9 +355,12 @@ const formatDate = (dateStr) => {
                 <td class="py-2.5 px-3 text-right font-heading text-slate-300 font-medium">
                   {{ formatMoney(srv.priceCharged) }}
                 </td>
+                <!-- Oculto temporalmente: Tu Ganancia -->
+                <!--
                 <td class="py-2.5 px-3 text-right font-heading font-bold text-brand-green-light">
                   +{{ formatMoney(getServiceEarnings(srv)) }}
                 </td>
+                -->
               </tr>
             </tbody>
           </table>
@@ -395,16 +396,19 @@ const formatDate = (dateStr) => {
               <p v-if="getServiceRoute(srv)" class="text-[11px] text-slate-400 truncate">📍 {{ getServiceRoute(srv) }}</p>
             </div>
 
-            <!-- Fila Inferior con etiquetas explícitas: Cobrado / Tu Ganancia -->
+            <!-- Fila Inferior con etiquetas explícitas: Cobrado -->
             <div class="flex items-center justify-between pt-1.5 border-t border-brand-border/30 text-xs">
               <div class="text-slate-400">
                 <span>Cobrado: </span>
                 <strong class="text-slate-200 font-heading font-semibold">{{ formatMoney(srv.priceCharged) }}</strong>
               </div>
+              <!-- Oculto temporalmente: Tu ganancia -->
+              <!--
               <div class="text-right">
                 <span class="text-slate-400 text-[10px]">Tu ganancia: </span>
                 <span class="text-brand-green-light font-heading font-bold text-xs">+{{ formatMoney(getServiceEarnings(srv)) }}</span>
               </div>
+              -->
             </div>
           </div>
         </div>
