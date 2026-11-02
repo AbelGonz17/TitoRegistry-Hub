@@ -108,16 +108,22 @@ router.beforeEach((to, _from, next) => {
   const token = getToken();
   let user: any = null;
   try {
-    const raw = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');
+    const raw = 
+      localStorage.getItem('tito_auth_user') || 
+      sessionStorage.getItem('tito_auth_user') || 
+      localStorage.getItem('auth_user') || 
+      sessionStorage.getItem('auth_user') ||
+      localStorage.getItem('tito_current_user');
     if (raw) user = JSON.parse(raw);
   } catch {
     user = null;
   }
 
-  const isAdmin = user?.isSuperAdmin || user?.role === 'Administrador' || user?.role === 'SuperAdmin';
+  const isAdmin = !!(user?.isSuperAdmin || user?.role === 'Administrador' || user?.role === 'SuperAdmin');
+  const isDriver = user?.role === 'Chofer' || user?.role === 'Conductor';
 
   // Si intenta acceder a rutas exclusivas de admin siendo chofer
-  if (to.meta.adminOnly && !isAdmin && token) {
+  if (to.meta.adminOnly && isDriver && token) {
     next('/dashboard');
     return;
   }

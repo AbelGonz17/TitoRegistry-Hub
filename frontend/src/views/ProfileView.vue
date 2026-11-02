@@ -70,6 +70,7 @@ const handleSaveProfile = async () => {
     }
 
     // Actualizar localmente en almacenamiento
+    localStorage.setItem('tito_auth_user', JSON.stringify(updatedUser));
     localStorage.setItem('auth_user', JSON.stringify(updatedUser));
     localStorage.setItem('tito_current_user', JSON.stringify(updatedUser));
 
