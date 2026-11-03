@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Application.Services;
@@ -10,6 +11,7 @@ namespace TitoRegistry.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
+[Authorize]
 public class ServiceTypesController : ControllerBase
 {
     private readonly IServiceRegistryService _serviceRegistry;
@@ -64,6 +66,7 @@ public class ServiceTypesController : ControllerBase
     /// <response code="201">Tipo de servicio creado satisfactoriamente.</response>
     /// <response code="400">Datos inválidos o campos obligatorios faltantes.</response>
     [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
     [ProducesResponseType(typeof(ServiceTypeDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateServiceType([FromBody] CreateServiceTypeDto dto, CancellationToken cancellationToken)
@@ -98,6 +101,7 @@ public class ServiceTypesController : ControllerBase
     /// <response code="400">Datos inválidos.</response>
     /// <response code="404">Tipo de servicio no encontrado.</response>
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
     [ProducesResponseType(typeof(ServiceTypeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -142,6 +146,7 @@ public class ServiceTypesController : ControllerBase
     /// <response code="200">Tipo de servicio eliminado lógicamente.</response>
     /// <response code="404">Tipo de servicio no encontrado o ya eliminado.</response>
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Administrador")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SoftDeleteServiceType([FromRoute] int id, CancellationToken cancellationToken)

@@ -1,5 +1,7 @@
-using System.Reflection;
+﻿using System.Reflection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using TitoRegistry.Application.Common.Interfaces;
 
 namespace TitoRegistry.Api.Controllers;
@@ -13,11 +15,13 @@ namespace TitoRegistry.Api.Controllers;
 public class StatusController : ControllerBase
 {
     private readonly IApplicationDbContext _context;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<StatusController> _logger;
 
-    public StatusController(IApplicationDbContext context, ILogger<StatusController> logger)
+    public StatusController(IApplicationDbContext context, IWebHostEnvironment env, ILogger<StatusController> logger)
     {
         _context = context;
+        _env = env;
         _logger = logger;
     }
 
@@ -50,7 +54,9 @@ public class StatusController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al comprobar la conectividad con la base de datos.");
-            dbStatusMessage = $"Error: {ex.Message}";
+            dbStatusMessage = _env.IsDevelopment() 
+                ? $"Error: {ex.Message}" 
+                : "Error de conectividad en el servicio de datos.";
         }
 
         var response = new

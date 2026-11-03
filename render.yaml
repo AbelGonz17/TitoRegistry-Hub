@@ -1,0 +1,33 @@
+﻿databases:
+  - name: titoregistry-db
+    databaseName: titoregistry_db
+    user: titouser
+    region: oregon
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: titoregistry-api
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    region: oregon
+    plan: free
+    branch: develop
+    healthCheckPath: /api/status
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: titoregistry-db
+          property: connectionString
+      - key: JwtSettings__Secret
+        generateValue: true
+      - key: JwtSettings__Issuer
+        value: TitoRegistryApi
+      - key: JwtSettings__Audience
+        value: TitoRegistryClient
+      - key: CorsSettings__AllowedOrigins
+        sync: false

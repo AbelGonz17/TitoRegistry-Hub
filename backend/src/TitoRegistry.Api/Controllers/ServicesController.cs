@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
@@ -53,14 +53,24 @@ public class ServicesController : ControllerBase
     /// <summary>
     /// Obtiene un servicio específico por su identificador único.
     /// </summary>
-    [HttpGet("{id:int}")]
+        [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetServiceById([FromRoute] int id, CancellationToken cancellationToken)
     {
         var service = await _serviceRegistry.GetServiceByIdAsync(id, cancellationToken);
         if (service == null)
             return NotFound(new { message = $"No se encontró ningún servicio con Id {id}." });
+
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
+
+        if (!isSuperAdminOrAdmin && int.TryParse(userIdStr, out int currentDriverId) && service.DriverId != currentDriverId)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para consultar un servicio registrado por otro chofer." });
+        }
 
         return Ok(service);
     }
@@ -108,14 +118,28 @@ public class ServicesController : ControllerBase
     /// <summary>
     /// Actualiza un servicio registrado previamente.
     /// </summary>
-    [HttpPut("{id:int}")]
+        [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateService([FromRoute] int id, [FromBody] UpdateServiceRecordDto dto, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+
+        var existing = await _serviceRegistry.GetServiceByIdAsync(id, cancellationToken);
+        if (existing == null)
+            return NotFound(new { message = $"No se encontró ningún servicio con Id {id}." });
+
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
+
+        if (!isSuperAdminOrAdmin && (!int.TryParse(userIdStr, out int currentDriverId) || existing.DriverId != currentDriverId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para modificar un servicio registrado por otro chofer." });
+        }
 
         try
         {

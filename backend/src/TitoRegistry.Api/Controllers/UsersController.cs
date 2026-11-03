@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Application.Services;
@@ -11,6 +11,7 @@ namespace TitoRegistry.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
+[Authorize(Roles = "SuperAdmin,Administrador")]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
