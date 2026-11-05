@@ -122,6 +122,12 @@ router.beforeEach((to, _from, next) => {
   const isAdmin = !!(user?.isSuperAdmin || user?.role === 'Administrador' || user?.role === 'SuperAdmin');
   const isDriver = user?.role === 'Chofer' || user?.role === 'Conductor';
 
+  // Si el visitante no está autenticado e intenta acceder a rutas exclusivas de chofer o admin
+  if (!token && (to.meta.adminOnly || to.meta.driverOnly)) {
+    next('/dashboard');
+    return;
+  }
+
   // Si intenta acceder a rutas exclusivas de admin siendo chofer
   if (to.meta.adminOnly && isDriver && token) {
     next('/dashboard');

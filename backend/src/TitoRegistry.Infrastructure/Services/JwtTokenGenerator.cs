@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
@@ -40,7 +40,8 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new(ClaimTypes.Role, user.Role.ToString()),
             new("code", user.Code),
             new("isSuperAdmin", (user.Role == TitoRegistry.Domain.Enums.UserRole.SuperAdmin).ToString().ToLowerInvariant()),
-            new("commissionRate", user.CommissionRate.ToString())
+            new("commissionRate", user.CommissionRate.ToString()),
+            new("mustChangePassword", user.MustChangePassword.ToString().ToLowerInvariant())
         };
 
         var expiration = DateTime.UtcNow.AddDays(expirationDays);

@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
@@ -29,6 +29,7 @@ public class ServicesController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<ServiceRecordDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetServices(
         [FromQuery] int? driverId,
         [FromQuery] DateTime? from,
@@ -37,13 +38,21 @@ public class ServicesController : ControllerBase
         [FromQuery] int? year,
         CancellationToken cancellationToken)
     {
-        // Si el usuario autenticado es Chofer y no es admin, solo puede ver sus propios servicios
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
 
-        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        // SEC-01: Si el usuario autenticado no es admin, solo puede consultar sus propios registros
+        if (!isSuperAdminOrAdmin)
         {
-            driverId = currentDriverId;
+            if (int.TryParse(userIdStr, out int currentDriverId))
+            {
+                driverId = currentDriverId;
+            }
+            else
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No fue posible verificar la identidad del chofer autenticado." });
+            }
         }
 
         var services = await _serviceRegistry.GetServicesAsync(driverId, from, to, month, year, cancellationToken);
@@ -53,7 +62,7 @@ public class ServicesController : ControllerBase
     /// <summary>
     /// Obtiene un servicio específico por su identificador único.
     /// </summary>
-        [HttpGet("{id:int}")]
+    [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -67,9 +76,13 @@ public class ServicesController : ControllerBase
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
 
-        if (!isSuperAdminOrAdmin && int.TryParse(userIdStr, out int currentDriverId) && service.DriverId != currentDriverId)
+        // SEC-01: Bloquear acceso si no es administrador y no es el dueño del servicio
+        if (!isSuperAdminOrAdmin)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para consultar un servicio registrado por otro chofer." });
+            if (!int.TryParse(userIdStr, out int currentDriverId) || service.DriverId != currentDriverId)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No tienes permiso para consultar un servicio registrado por otro chofer." });
+            }
         }
 
         return Ok(service);
@@ -81,18 +94,28 @@ public class ServicesController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RegisterService([FromBody] CreateServiceRecordDto dto, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Si el chofer registra su servicio y el dto.DriverId no fue provisto o es 0, usar el suyo
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
+
+        // SEC-01: Si el usuario no es SuperAdmin ni Administrador, forzar asignación al chofer autenticado
+        if (!isSuperAdminOrAdmin)
         {
-            dto.DriverId = currentDriverId;
+            if (int.TryParse(userIdStr, out int currentDriverId))
+            {
+                dto.DriverId = currentDriverId;
+            }
+            else
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No fue posible determinar la identidad del chofer autenticado." });
+            }
         }
 
         try
@@ -118,7 +141,7 @@ public class ServicesController : ControllerBase
     /// <summary>
     /// Actualiza un servicio registrado previamente.
     /// </summary>
-        [HttpPut("{id:int}")]
+    [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(ServiceRecordDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -145,6 +168,10 @@ public class ServicesController : ControllerBase
         {
             var updated = await _serviceRegistry.UpdateServiceAsync(id, dto, cancellationToken);
             return Ok(updated);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (KeyNotFoundException ex)
         {

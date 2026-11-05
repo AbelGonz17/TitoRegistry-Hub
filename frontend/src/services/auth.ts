@@ -190,43 +190,47 @@ export async function logout(): Promise<void> {
 }
 
 // 4. Cambiar Contraseña (/api/auth/change-password)
-export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string; token?: string }> {
   const token = getToken();
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ currentPassword, newPassword })
-    });
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
 
-    if (response.ok) {
-      const data = await response.json().catch(() => null);
-      return data || { success: true, message: 'Contraseña actualizada con éxito.' };
-    }
-
-    // Si el backend aún no ha habilitado la ruta (404 / 501 / 405)
-    if (response.status === 404 || response.status === 501 || response.status === 405) {
-      console.warn('El backend aún no tiene el endpoint /api/auth/change-password habilitado. Simulación exitosa en frontend.');
-      return { 
-        success: true, 
-        message: 'Contraseña cambiada exitosamente (guardado en frontend hasta habilitar backend).' 
-      };
-    }
-
+  if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.message || `Error del servidor (${response.status})`);
-  } catch (err: any) {
-    if (err.message?.includes('Failed to fetch') || err.message?.includes('404')) {
-      return { 
-        success: true, 
-        message: 'Contraseña cambiada exitosamente (guardado en frontend hasta habilitar backend).' 
-      };
-    }
-    throw err;
   }
+
+  const data = await response.json().catch(() => null);
+
+  // Si el backend devuelve un nuevo token JWT actualizado, refrescar la sesión del cliente
+  if (data?.token) {
+    if (localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+    } else {
+      sessionStorage.setItem(TOKEN_KEY, data.token);
+    }
+
+    if (data.user) {
+      const normalizedUser: User = {
+        ...data.user,
+        fullName: data.user.fullName || data.user.name || 'Usuario',
+        avatar: data.user.avatar || (data.user.role === 'SuperAdmin' || data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚗' : '👔')),
+      };
+      if (localStorage.getItem(USER_KEY)) {
+        localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+      } else {
+        sessionStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+      }
+    }
+  }
+
+  return data || { success: true, message: 'Contraseña actualizada con éxito.' };
 }
 
 export const authService = {

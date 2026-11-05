@@ -1,4 +1,4 @@
-# Stage 1: Build & Publish
+﻿# Stage 1: Build & Publish
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 
@@ -18,10 +18,13 @@ COPY src/ ./src/
 WORKDIR /app/src/TitoRegistry.Api
 RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
 
-# Stage 2: Runtime ligero
+# Stage 2: Runtime ligero y seguro (Principle of Least Privilege)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app/publish .
+
+# SEC-08: Ejecución bajo usuario no-root 'app' (UID 1654 provisto por la imagen oficial .NET)
+USER $APP_UID
 
 ENV ASPNETCORE_URLS=http://+:5107
 EXPOSE 5107

@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Application.Services;
 
@@ -16,11 +17,16 @@ namespace TitoRegistry.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly ITokenBlacklistService _blacklistService;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(
+        IAuthService authService,
+        ITokenBlacklistService blacklistService,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
+        _blacklistService = blacklistService;
         _logger = logger;
     }
 
@@ -80,11 +86,11 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Cambia la contraseña del usuario actualmente autenticado validando su contraseña actual.
+    /// Cambia la contraseña del usuario actualmente autenticado validando su contraseña actual y emitiendo un nuevo token.
     /// </summary>
     [HttpPost("change-password")]
     [Authorize]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto, CancellationToken cancellationToken)
@@ -102,8 +108,14 @@ public class AuthController : ControllerBase
 
         try
         {
-            await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
-            return Ok(new { success = true, message = "Contraseña actualizada exitosamente." });
+            var authResponse = await _authService.ChangePasswordAsync(userId, dto, cancellationToken);
+            return Ok(new { 
+                success = true, 
+                token = authResponse.Token, 
+                expiration = authResponse.Expiration, 
+                user = authResponse.User,
+                message = "Contraseña actualizada exitosamente." 
+            });
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -141,6 +153,15 @@ public class AuthController : ControllerBase
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
             ?? User.FindFirst("sub")?.Value 
             ?? "N/A";
+
+        var jti = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value
+            ?? User.FindFirst("jti")?.Value;
+
+        if (!string.IsNullOrEmpty(jti))
+        {
+            // Revocar el token durante su ciclo de vida máximo (7 días)
+            _blacklistService.BlacklistToken(jti, DateTime.UtcNow.AddDays(7));
+        }
 
         _logger.LogInformation("Usuario {Email} (ID: {UserId}) cerró sesión exitosamente.", userEmail, userId);
 

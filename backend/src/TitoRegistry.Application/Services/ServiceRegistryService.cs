@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using TitoRegistry.Application.Common.Interfaces;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Domain.Entities;
@@ -140,6 +140,34 @@ public class ServiceRegistryService : IServiceRegistryService
         if (record == null)
             throw new KeyNotFoundException($"No se encontró ningún servicio con Id {id}.");
 
+        // SEC-06: Validar si la liquidación del periodo original ya fue aprobada o pagada
+        bool isOriginalSettled = await _context.DriverSettlements
+            .AnyAsync(s => s.DriverId == record.DriverId 
+                        && s.Month == record.ServiceDate.Month 
+                        && s.Year == record.ServiceDate.Year 
+                        && (s.Status == "Aprobado" || s.Status == "Pagado")
+                        && !s.IsDeleted, cancellationToken);
+
+        if (isOriginalSettled)
+        {
+            throw new InvalidOperationException($"No se puede modificar el servicio porque la liquidación del periodo {record.ServiceDate.Month:D2}/{record.ServiceDate.Year} ya se encuentra aprobada o pagada.");
+        }
+
+        if (dto.ServiceDate.Month != record.ServiceDate.Month || dto.ServiceDate.Year != record.ServiceDate.Year)
+        {
+            bool isNewSettled = await _context.DriverSettlements
+                .AnyAsync(s => s.DriverId == record.DriverId 
+                            && s.Month == dto.ServiceDate.Month 
+                            && s.Year == dto.ServiceDate.Year 
+                            && (s.Status == "Aprobado" || s.Status == "Pagado")
+                            && !s.IsDeleted, cancellationToken);
+
+            if (isNewSettled)
+            {
+                throw new InvalidOperationException($"No se puede trasladar la fecha del servicio a {dto.ServiceDate.Month:D2}/{dto.ServiceDate.Year} porque dicha liquidación ya se encuentra aprobada o pagada.");
+            }
+        }
+
         var serviceType = await _context.ServiceTypes
             .FirstOrDefaultAsync(s => s.Id == dto.ServiceTypeId && !s.IsDeleted, cancellationToken);
 
@@ -159,6 +187,19 @@ public class ServiceRegistryService : IServiceRegistryService
 
         if (record == null)
             return false;
+
+        // SEC-06: Bloquear eliminación de servicios pertenecientes a liquidaciones aprobadas o pagadas
+        bool isSettled = await _context.DriverSettlements
+            .AnyAsync(s => s.DriverId == record.DriverId 
+                        && s.Month == record.ServiceDate.Month 
+                        && s.Year == record.ServiceDate.Year 
+                        && (s.Status == "Aprobado" || s.Status == "Pagado")
+                        && !s.IsDeleted, cancellationToken);
+
+        if (isSettled)
+        {
+            throw new InvalidOperationException($"No se puede eliminar el servicio porque la liquidación del periodo {record.ServiceDate.Month:D2}/{record.ServiceDate.Year} ya se encuentra aprobada o pagada.");
+        }
 
         record.SoftDelete();
         await _context.SaveChangesAsync(cancellationToken);

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TitoRegistry.Application.DTOs;
 using TitoRegistry.Application.Services;
@@ -77,10 +77,16 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+
         try
         {
-            var created = await _userService.CreateUserAsync(dto, cancellationToken);
+            var created = await _userService.CreateUserAsync(dto, currentRole, cancellationToken);
             return CreatedAtAction(nameof(GetUserById), new { id = created.Id }, created);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -102,10 +108,12 @@ public class UsersController : ControllerBase
     /// <returns>El usuario actualizado.</returns>
     /// <response code="200">Usuario modificado correctamente.</response>
     /// <response code="400">Datos inválidos.</response>
+    /// <response code="403">No tienes permiso para modificar este usuario.</response>
     /// <response code="404">Usuario no encontrado.</response>
     [HttpPut("{id:int}")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateUser(
         [FromRoute] int id,
@@ -115,10 +123,18 @@ public class UsersController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
+        var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        var currentUserIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        int? currentUserId = int.TryParse(currentUserIdStr, out int uid) ? uid : null;
+
         try
         {
-            var updated = await _userService.UpdateUserAsync(id, dto, cancellationToken);
+            var updated = await _userService.UpdateUserAsync(id, dto, currentRole, currentUserId, cancellationToken);
             return Ok(updated);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
         }
         catch (KeyNotFoundException ex)
         {
@@ -138,16 +154,32 @@ public class UsersController : ControllerBase
     /// <param name="cancellationToken">Token de cancelación.</param>
     /// <returns>Confirmación del borrado lógico.</returns>
     /// <response code="200">Usuario eliminado lógicamente.</response>
+    /// <response code="403">No tienes permiso para eliminar este usuario.</response>
     /// <response code="404">Usuario no encontrado o ya eliminado.</response>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SoftDeleteUser([FromRoute] int id, CancellationToken cancellationToken)
     {
-        var deleted = await _userService.SoftDeleteUserAsync(id, cancellationToken);
-        if (!deleted)
-            return NotFound(new { message = $"No se encontró ningún usuario activo con Id {id}." });
+        var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
 
-        return Ok(new { message = $"El usuario {id} fue eliminado lógicamente (Soft Delete) con éxito." });
+        try
+        {
+            var deleted = await _userService.SoftDeleteUserAsync(id, currentRole, cancellationToken);
+            if (!deleted)
+                return NotFound(new { message = $"No se encontró ningún usuario activo con Id {id}." });
+
+            return Ok(new { message = $"El usuario {id} fue eliminado lógicamente (Soft Delete) con éxito." });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al eliminar usuario {Id}", id);
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Error interno al eliminar el usuario." });
+        }
     }
 }

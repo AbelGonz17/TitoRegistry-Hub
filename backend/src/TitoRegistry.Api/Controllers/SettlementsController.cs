@@ -40,6 +40,7 @@ public class SettlementsController : ControllerBase
     [HttpGet("calculate")]
     [ProducesResponseType(typeof(DriverSettlementReportDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CalculateSettlement(
         [FromQuery] int driverId,
@@ -54,12 +55,21 @@ public class SettlementsController : ControllerBase
         [FromQuery] decimal otherDeductions = 0m,
         CancellationToken cancellationToken = default)
     {
-        // Si el usuario es Chofer, solo puede calcular su propia liquidación
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
+
+        // SEC-01: Si el usuario no es admin ni SuperAdmin, solo puede calcular su propia liquidación
+        if (!isSuperAdminOrAdmin)
         {
-            driverId = currentDriverId;
+            if (int.TryParse(userIdStr, out int currentDriverId))
+            {
+                driverId = currentDriverId;
+            }
+            else
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No fue posible verificar la identidad del chofer autenticado." });
+            }
         }
 
         if (month < 1 || month > 12)
@@ -130,6 +140,7 @@ public class SettlementsController : ControllerBase
     /// </summary>
     [HttpGet("history")]
     [ProducesResponseType(typeof(List<DriverSettlementReportDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetSettlementHistory(
         [FromQuery] int? driverId,
         [FromQuery] int? year,
@@ -137,9 +148,19 @@ public class SettlementsController : ControllerBase
     {
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
         var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (role == "Chofer" && int.TryParse(userIdStr, out int currentDriverId))
+        bool isSuperAdminOrAdmin = role == "SuperAdmin" || role == "Administrador";
+
+        // SEC-01: Choferes solo pueden consultar su propio historial de liquidaciones
+        if (!isSuperAdminOrAdmin)
         {
-            driverId = currentDriverId;
+            if (int.TryParse(userIdStr, out int currentDriverId))
+            {
+                driverId = currentDriverId;
+            }
+            else
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "No fue posible verificar la identidad del chofer autenticado." });
+            }
         }
 
         var history = await _serviceRegistry.GetSettlementHistoryAsync(driverId, year, cancellationToken);

@@ -1,7 +1,8 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -16,18 +17,25 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers con filtro de cambio de contraseña obligatorio
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<TitoRegistry.Api.Filters.MustChangePasswordFilter>();
+});
 
 // Configure JWT Authentication
+const string devDefaultSecret = "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
 var jwtSecret = builder.Configuration["JwtSettings:Secret"];
-if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
+if (builder.Environment.IsProduction())
 {
-    if (builder.Environment.IsProduction())
+    if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32 || jwtSecret == devDefaultSecret)
     {
-        throw new InvalidOperationException("FATAL: En entorno de Producción, 'JwtSettings:Secret' debe configurarse mediante variable de entorno y tener al menos 32 caracteres.");
+        throw new InvalidOperationException("FATAL: En entorno de Producción, 'JwtSettings:Secret' debe configurarse mediante variable de entorno con un secreto único y no puede coincidir con la clave por defecto.");
     }
-    jwtSecret = "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+}
+else if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
+{
+    jwtSecret = devDefaultSecret;
 }
 
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "TitoRegistryApi";
@@ -53,9 +61,30 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklistService>();
+            var jti = context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+            if (!string.IsNullOrEmpty(jti) && blacklist.IsBlacklisted(jti))
+            {
+                context.Fail("La sesión ha expirado o el token ha sido revocado.");
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
+
+// Soporte de Forwarded Headers para Render / Proxies Inversos
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Configure CORS for Frontend (Localhost + Producción Render/Vercel)
 var configuredOrigins = builder.Configuration["CorsSettings:AllowedOrigins"]?
@@ -84,16 +113,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Configure Rate Limiting for Auth
+// Configure Rate Limiting for Auth particionado por IP remota
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("AuthLimit", opt =>
-    {
-        opt.PermitLimit = 10;
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.QueueLimit = 0;
-    });
+    options.AddPolicy("AuthLimit", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 // Configure Swagger / OpenAPI con soporte para Tokens JWT
@@ -170,6 +202,9 @@ if (app.Environment.IsDevelopment())
         c.DocumentTitle = "Transporte Tito API Documentation";
     });
 }
+
+// Proxies Inversos (Render)
+app.UseForwardedHeaders();
 
 // Security Headers Middleware
 app.Use(async (context, next) =>
