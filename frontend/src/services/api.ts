@@ -176,6 +176,20 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+  updateService: (id: number | string, payload: any): Promise<Service> => {
+    const body = {
+      serviceTypeId: Number(payload.serviceTypeId),
+      clientReference: payload.clientReference || payload.clientName,
+      description: payload.description || payload.clientAddress || `Servicio realizado para ${payload.clientName || 'cliente'}`,
+      serviceDate: payload.serviceDate || new Date().toISOString(),
+      priceCharged: Number(payload.priceCharged),
+      notes: payload.notes ?? ''
+    };
+    return request<Service>(`/services/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  },
 
   // Catálogo Dinámico de Servicios (CRUD)
   getServiceTypes: (): Promise<ServiceType[]> => request<ServiceType[]>('/servicetypes'),

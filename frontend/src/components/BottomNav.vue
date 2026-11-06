@@ -1,96 +1,189 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { User } from '../types';
+import {
+  LayoutDashboard,
+  Car,
+  ClipboardList,
+  FileSpreadsheet,
+  Users,
+  User as UserIcon,
+  MoreHorizontal
+} from 'lucide-vue-next';
 
 const props = defineProps<{
   currentTab?: string;
   currentUser?: User | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'change-tab', tab: string): void;
   (e: 'open-new-service'): void;
   (e: 'refresh'): void;
   (e: 'open-auth', mode: string): void;
 }>();
 
+const showMoreMenu = ref(false);
+
+const closeMoreMenu = () => {
+  showMoreMenu.value = false;
+};
+
+onMounted(() => {
+  window.addEventListener('click', closeMoreMenu);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeMoreMenu);
+});
+
 const isAdmin = computed(() => {
   return props.currentUser?.isSuperAdmin || 
          props.currentUser?.role === 'Administrador' || 
          props.currentUser?.role === 'SuperAdmin';
 });
+
+const isMoreActive = computed(() => {
+  return props.currentTab === 'catalog' || props.currentTab === 'users';
+});
+
+const selectTab = (tab: string) => {
+  showMoreMenu.value = false;
+  emit('change-tab', tab);
+};
 </script>
 
 <template>
-  <div class="md:hidden fixed bottom-0 left-0 right-0 z-[900] bg-brand-charcoal/95 border-t border-brand-border backdrop-blur-xl px-3 py-2 pb-[calc(8px+env(safe-area-inset-bottom,0px))]">
+  <nav
+    aria-label="Navegación inferior"
+    class="md:hidden fixed bottom-0 left-0 right-0 z-[900] bg-brand-charcoal/95 border-t border-brand-border backdrop-blur-xl px-2 py-1.5 pb-[calc(8px+env(safe-area-inset-bottom,0px))]"
+  >
     <div class="flex items-center justify-around max-w-lg mx-auto relative">
       <!-- 1. Panel -->
       <button 
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'dashboard' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'dashboard')"
+        type="button"
+        :class="[
+          'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+          currentTab === 'dashboard'
+            ? 'text-brand-green-light bg-brand-green/15 font-bold'
+            : 'text-slate-300 hover:text-white'
+        ]"
+        @click="selectTab('dashboard')"
       >
-        <span class="text-xl leading-none">📊</span>
-        <span class="text-[11px] font-heading font-semibold">Panel</span>
+        <LayoutDashboard class="w-5 h-5" />
+        <span class="text-xs font-heading tracking-tight">Panel</span>
       </button>
 
       <!-- 2. Mis Servicios (Solo para Choferes) -->
       <button 
         v-if="!isAdmin"
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'services' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'services')"
+        type="button"
+        :class="[
+          'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+          currentTab === 'services'
+            ? 'text-brand-green-light bg-brand-green/15 font-bold'
+            : 'text-slate-300 hover:text-white'
+        ]"
+        @click="selectTab('services')"
       >
-        <span class="text-xl leading-none">🚐</span>
-        <span class="text-[11px] font-heading font-semibold">Servicios</span>
+        <Car class="w-5 h-5" />
+        <span class="text-xs font-heading tracking-tight">Servicios</span>
       </button>
 
       <!-- 2. Servicios por Chofer (Solo para Administradores) -->
       <button 
         v-if="isAdmin"
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'admin-services' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'admin-services')"
+        type="button"
+        :class="[
+          'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+          currentTab === 'admin-services'
+            ? 'text-brand-green-light bg-brand-green/15 font-bold'
+            : 'text-slate-300 hover:text-white'
+        ]"
+        @click="selectTab('admin-services')"
       >
-        <span class="text-xl leading-none">🚐</span>
-        <span class="text-[11px] font-heading font-semibold">Choferes</span>
+        <Car class="w-5 h-5" />
+        <span class="text-xs font-heading tracking-tight">Choferes</span>
       </button>
 
-      <!-- 2. Catálogo (Solo para Administradores) -->
+      <!-- 3. Liquidaciones / Planilla (Solo para Administradores) -->
       <button 
         v-if="isAdmin"
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'catalog' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'catalog')"
+        type="button"
+        :class="[
+          'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+          currentTab === 'settlements'
+            ? 'text-brand-green-light bg-brand-green/15 font-bold'
+            : 'text-slate-300 hover:text-white'
+        ]"
+        @click="selectTab('settlements')"
       >
-        <span class="text-xl leading-none">📋</span>
-        <span class="text-[11px] font-heading font-semibold">Catálogo</span>
-      </button>
-      <!-- 3. Liquidaciones (Solo para Administradores) -->
-      <button 
-        v-if="isAdmin"
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'settlements' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'settlements')"
-      >
-        <span class="text-xl leading-none">📄</span>
-        <span class="text-[11px] font-heading font-semibold">Planilla</span>
+        <FileSpreadsheet class="w-5 h-5" />
+        <span class="text-xs font-heading tracking-tight">Planilla</span>
       </button>
 
-      <!-- 4. Personal (Solo para Administradores) -->
-      <button 
-        v-if="isAdmin"
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px]', currentTab === 'users' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'users')"
-      >
-        <span class="text-xl leading-none">👥</span>
-        <span class="text-[11px] font-heading font-semibold">Personal</span>
-      </button>
+      <!-- 4. Menú "Más" en móvil para Catálogo y Personal (Solo Administradores, evita 6 pestañas apretadas) -->
+      <div v-if="isAdmin" class="relative" @click.stop>
+        <button 
+          type="button"
+          :class="[
+            'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+            isMoreActive || showMoreMenu
+              ? 'text-brand-green-light bg-brand-green/15 font-bold'
+              : 'text-slate-300 hover:text-white'
+          ]"
+          @click="showMoreMenu = !showMoreMenu"
+        >
+          <MoreHorizontal class="w-5 h-5" />
+          <span class="text-xs font-heading tracking-tight">Más</span>
+        </button>
+
+        <!-- Menú flotante superior con Catálogo y Personal -->
+        <div
+          v-if="showMoreMenu"
+          class="absolute bottom-full right-0 mb-2.5 w-48 bg-brand-card border border-brand-border-strong rounded-2xl shadow-elevated p-1.5 z-50 animate-fadeIn"
+        >
+          <button
+            type="button"
+            :class="[
+              'w-full px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold flex items-center gap-2.5 transition-colors cursor-pointer',
+              currentTab === 'catalog' ? 'bg-brand-green/20 text-brand-green-light' : 'text-slate-200 hover:bg-white/[0.08]'
+            ]"
+            @click="selectTab('catalog')"
+          >
+            <ClipboardList class="w-4 h-4 text-brand-green-light" />
+            <span>Catálogo de Rutas</span>
+          </button>
+
+          <button
+            type="button"
+            :class="[
+              'w-full px-3 py-2.5 rounded-xl text-left text-[13px] font-semibold flex items-center gap-2.5 transition-colors cursor-pointer',
+              currentTab === 'users' ? 'bg-brand-green/20 text-brand-green-light' : 'text-slate-200 hover:bg-white/[0.08]'
+            ]"
+            @click="selectTab('users')"
+          >
+            <Users class="w-4 h-4 text-brand-green-light" />
+            <span>Personal & Choferes</span>
+          </button>
+        </div>
+      </div>
 
       <!-- 5. Perfil / Cuenta en móvil -->
       <button 
-        :class="['flex flex-col items-center gap-1 px-2.5 py-1.5 rounded-xl transition-all min-w-[54px] cursor-pointer', currentTab === 'profile' ? 'text-brand-green-light' : 'text-slate-400 hover:text-white']"
-        @click="$emit('change-tab', 'profile')"
-        :title="currentUser ? (currentUser.fullName || currentUser.name || currentUser.email || 'Usuario') : 'Iniciar Sesión / Registrarse'"
+        type="button"
+        :class="[
+          'flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all min-w-[60px] cursor-pointer focus:outline-none',
+          currentTab === 'profile'
+            ? 'text-brand-green-light bg-brand-green/15 font-bold'
+            : 'text-slate-300 hover:text-white'
+        ]"
+        @click="selectTab('profile')"
+        title="Mi Perfil y Cuenta"
       >
-        <span class="text-xl leading-none">{{ currentUser ? (currentUser.avatar || (currentUser.role === 'Chofer' ? '🚐' : '👑')) : '👤' }}</span>
-        <span class="text-[11px] font-heading font-semibold">{{ currentUser ? (((currentUser.fullName || currentUser.name || currentUser.email || 'Perfil').split(' ')[0])) : 'Ingresar' }}</span>
+        <UserIcon class="w-5 h-5" />
+        <span class="text-xs font-heading tracking-tight">Perfil</span>
       </button>
     </div>
-  </div>
+  </nav>
 </template>

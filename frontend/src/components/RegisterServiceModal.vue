@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { ServiceType, User } from '../types';
+import type { Service, ServiceType, User } from '../types';
+import { parseServiceExpense } from '../utils/expenses';
 
 const props = defineProps<{
   show: boolean;
+  service?: Service | null;
   employee?: { id?: number | string; fullName?: string; commissionRate?: number; role?: string };
   drivers?: User[];
   isAdmin?: boolean;
@@ -15,6 +17,8 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'submit', payload: any): void;
 }>();
+
+const isEditing = computed(() => !!props.service?.id);
 
 // Formulario reactivo alineado con el registro oficial
 const formData = ref({
@@ -35,24 +39,44 @@ const expenses = ref({
   comida: false,
   cena: false,
   parqueo: false,
-  parqueoMonto: '' as string | number
+  parqueoMonto: '' as string | number,
+  peaje: false,
+  peajeMonto: '' as string | number
 });
+const expensePaidInCash = ref(false);
 const manualNotes = ref('');
 
-// Total de dietas / gastos calculados
+// Total de dietas / gastos calculados por botones
 const totalExpenses = computed(() => {
   let total = 0;
   if (expenses.value.desayuno) total += 200;
   if (expenses.value.comida) total += 300;
   if (expenses.value.cena) total += 200;
   if (expenses.value.parqueo) total += (Number(expenses.value.parqueoMonto) || 0);
+  if (expenses.value.peaje) total += (Number(expenses.value.peajeMonto) || 0);
   return total;
+});
+
+// Gastos detectados en notas escritas manualmente (ej. "Utilice 250 de peaje")
+const manualNoteExpenseAmount = computed(() => {
+  return parseServiceExpense(manualNotes.value).amount;
+});
+
+const effectiveTotalExpenses = computed(() => {
+  return totalExpenses.value + manualNoteExpenseAmount.value;
 });
 
 const toggleParqueo = () => {
   expenses.value.parqueo = !expenses.value.parqueo;
   if (!expenses.value.parqueo) {
     expenses.value.parqueoMonto = '';
+  }
+};
+
+const togglePeaje = () => {
+  expenses.value.peaje = !expenses.value.peaje;
+  if (!expenses.value.peaje) {
+    expenses.value.peajeMonto = '';
   }
 };
 
@@ -76,33 +100,103 @@ const getSuggestedPrefix = (typeId?: number | string) => {
   return `Servicio de transporte ${selected.name} `;
 };
 
-// Al abrir el modal, inicializar datos
-watch(() => props.show, (newVal) => {
+// Al abrir el modal, inicializar datos (nuevo registro o edición de servicio existente)
+watch(() => [props.show, props.service] as const, ([newVal, srv]) => {
   if (newVal) {
     errorMessage.value = '';
-    const initialDriverId = props.employee?.id || (props.drivers && props.drivers.length > 0 ? props.drivers[0].id : '');
-    const firstServiceType = props.serviceTypes && props.serviceTypes.length > 0 ? props.serviceTypes[0] : null;
 
-    expenses.value = {
-      desayuno: false,
-      comida: false,
-      cena: false,
-      parqueo: false,
-      parqueoMonto: ''
-    };
-    manualNotes.value = '';
+    if (srv && srv.id) {
+      // Modo Edición: Precargar datos del servicio seleccionado
+      const parsedExp = parseServiceExpense(srv.notes, srv.id);
+      expensePaidInCash.value = parsedExp.paidInCash;
 
-    const initialPrefix = firstServiceType ? getSuggestedPrefix(firstServiceType.id) : 'Servicio de transporte ';
+      let cleanNotes = (srv.notes || '')
+        .replace(/\[PAGADO EN EFECTIVO\]\s*/gi, '')
+        .replace(/\[PENDIENTE REEMBOLSO\]\s*/gi, '')
+        .trim();
 
-    formData.value = {
-      driverId: initialDriverId,
-      clientReference: '',
-      serviceTypeId: firstServiceType ? firstServiceType.id : '',
-      description: initialPrefix,
-      serviceDate: new Date().toISOString().slice(0, 10),
-      priceCharged: firstServiceType ? (firstServiceType as any).defaultPrice || (firstServiceType as any).basePrice || '' : '',
-      notes: ''
-    };
+      let desayuno = false;
+      let comida = false;
+      let cena = false;
+      let parqueo = false;
+      let parqueoMonto: string | number = '';
+      let peaje = false;
+      let peajeMonto: string | number = '';
+      let restManual = '';
+
+      if (/^Dietas\/Gastos:/i.test(cleanNotes)) {
+        const splitParts = cleanNotes.split(' | ');
+        const dietasPart = splitParts[0] || '';
+        restManual = splitParts.slice(1).join(' | ').trim();
+
+        desayuno = /Desayuno\s*\(RD\$\s*200\)/i.test(dietasPart);
+        comida = /Comida\s*\(RD\$\s*300\)/i.test(dietasPart);
+        cena = /Cena\s*\(RD\$\s*200\)/i.test(dietasPart);
+
+        const parqMatch = dietasPart.match(/Parqueo Aeropuerto\s*\(RD\$\s*([\d,]+(?:\.\d+)?)\)/i);
+        if (parqMatch) {
+          parqueo = true;
+          parqueoMonto = Number(parqMatch[1].replace(/,/g, '')) || '';
+        }
+
+        const peajeMatch = dietasPart.match(/Peaje\s*\(RD\$\s*([\d,]+(?:\.\d+)?)\)/i);
+        if (peajeMatch) {
+          peaje = true;
+          peajeMonto = Number(peajeMatch[1].replace(/,/g, '')) || '';
+        }
+      } else {
+        restManual = cleanNotes;
+      }
+
+      expenses.value = {
+        desayuno,
+        comida,
+        cena,
+        parqueo,
+        parqueoMonto,
+        peaje,
+        peajeMonto
+      };
+      manualNotes.value = restManual;
+
+      formData.value = {
+        driverId: srv.driverId || srv.employeeId || props.employee?.id || '',
+        clientReference: srv.clientReference || srv.clientName || '',
+        serviceTypeId: srv.serviceTypeId || '',
+        description: srv.description || srv.clientAddress || '',
+        serviceDate: (srv.serviceDate || new Date().toISOString()).slice(0, 10),
+        priceCharged: srv.priceCharged ?? '',
+        notes: srv.notes || ''
+      };
+    } else {
+      // Modo Creación: Valores por defecto
+      const initialDriverId = props.employee?.id || (props.drivers && props.drivers.length > 0 ? props.drivers[0].id : '');
+      const firstServiceType = props.serviceTypes && props.serviceTypes.length > 0 ? props.serviceTypes[0] : null;
+
+      expenses.value = {
+        desayuno: false,
+        comida: false,
+        cena: false,
+        parqueo: false,
+        parqueoMonto: '',
+        peaje: false,
+        peajeMonto: ''
+      };
+      expensePaidInCash.value = false;
+      manualNotes.value = '';
+
+      const initialPrefix = firstServiceType ? getSuggestedPrefix(firstServiceType.id) : 'Servicio de transporte ';
+
+      formData.value = {
+        driverId: initialDriverId,
+        clientReference: '',
+        serviceTypeId: firstServiceType ? firstServiceType.id : '',
+        description: initialPrefix,
+        serviceDate: new Date().toISOString().slice(0, 10),
+        priceCharged: firstServiceType ? (firstServiceType as any).defaultPrice || (firstServiceType as any).basePrice || '' : '',
+        notes: ''
+      };
+    }
   }
 });
 
@@ -172,6 +266,10 @@ const handleSubmit = () => {
     errorMessage.value = 'Por favor ingresa el monto pagado por el Parqueo del Aeropuerto.';
     return;
   }
+  if (expenses.value.peaje && (!expenses.value.peajeMonto || Number(expenses.value.peajeMonto) <= 0)) {
+    errorMessage.value = 'Por favor ingresa el monto pagado por Peaje / Otros gastos.';
+    return;
+  }
 
   // Construir las notas con dietas / gastos seleccionados
   const parts: string[] = [];
@@ -182,13 +280,23 @@ const handleSubmit = () => {
     const monto = Number(expenses.value.parqueoMonto) || 0;
     parts.push(`Parqueo Aeropuerto (RD$ ${monto.toLocaleString('es-DO')})`);
   }
+  if (expenses.value.peaje) {
+    const montoPeaje = Number(expenses.value.peajeMonto) || 0;
+    parts.push(`Peaje (RD$ ${montoPeaje.toLocaleString('es-DO')})`);
+  }
 
   let finalNotes = '';
   if (parts.length > 0) {
-    finalNotes = `Dietas/Gastos: ${parts.join(', ')}`;
+    const statusTag = expensePaidInCash.value ? '[PAGADO EN EFECTIVO] ' : '';
+    finalNotes = `${statusTag}Dietas/Gastos: ${parts.join(', ')}`;
   }
   if (manualNotes.value.trim()) {
-    finalNotes = finalNotes ? `${finalNotes} | ${manualNotes.value.trim()}` : manualNotes.value.trim();
+    const noteText = manualNotes.value.trim();
+    if (!finalNotes && expensePaidInCash.value) {
+      finalNotes = `[PAGADO EN EFECTIVO] ${noteText}`;
+    } else {
+      finalNotes = finalNotes ? `${finalNotes} | ${noteText}` : noteText;
+    }
   }
 
   const payload = {
@@ -213,10 +321,12 @@ const handleSubmit = () => {
       <!-- Encabezado del Modal -->
       <div class="modal-header">
         <div class="header-titles">
-          <div class="badge-tag">🚐 Transporte Tito</div>
-          <h2 class="modal-title">Registrar Servicio</h2>
+          <div class="badge-tag">
+            🚐 Transporte Tito {{ isEditing && service?.serviceCode ? `• ${service.serviceCode}` : '' }}
+          </div>
+          <h2 class="modal-title">{{ isEditing ? 'Editar Servicio Registrado' : 'Registrar Servicio' }}</h2>
           <p class="modal-subtitle">
-            Formulario oficial de registro de servicios y viajes
+            {{ isEditing ? 'Actualiza el cliente, ruta, monto cobrado o viáticos del viaje' : 'Formulario oficial de registro de servicios y viajes' }}
           </p>
         </div>
         <button class="btn-close" @click="$emit('close')" aria-label="Cerrar">&times;</button>
@@ -230,7 +340,7 @@ const handleSubmit = () => {
         </div>
 
         <!-- 1. Chofer / Conductor (* Elegir) -->
-        <div class="form-group" v-if="isAdmin && drivers && drivers.length > 0">
+        <div class="form-group" v-if="!isEditing && isAdmin && drivers && drivers.length > 0">
           <label class="form-label">Chofer Asignado *</label>
           <select 
             v-model="formData.driverId" 
@@ -342,8 +452,8 @@ const handleSubmit = () => {
         <div class="form-group">
           <div class="expense-header-row">
             <label class="form-label" style="margin-bottom: 0;">Observaciones y Dietas (Opcional)</label>
-            <span v-if="totalExpenses > 0" class="badge-total-expenses">
-              Total Viáticos: RD$ {{ totalExpenses.toLocaleString('es-DO') }}
+            <span v-if="effectiveTotalExpenses > 0" class="badge-total-expenses">
+              Total Viáticos: RD$ {{ effectiveTotalExpenses.toLocaleString('es-DO') }}
             </span>
           </div>
 
@@ -391,7 +501,18 @@ const handleSubmit = () => {
             >
               <span class="icon">🅿️</span>
               <span class="title">Parqueo Aeropuerto</span>
-              <span class="cost">{{ expenses.parqueo && expenses.parqueoMonto ? `RD$ ${expenses.parqueoMonto}` : 'Indicar $' }}</span>
+              <span class="cost">{{ expenses.parqueo && expenses.parqueoMonto ? `RD$ ${expenses.parqueoMonto}` : 'Indicar RD$' }}</span>
+            </button>
+
+            <!-- Peaje / Otros Gastos Numéricos -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.peaje }]"
+              @click="togglePeaje"
+            >
+              <span class="icon">🛣️</span>
+              <span class="title">Peaje / Gasto</span>
+              <span class="cost">{{ expenses.peaje && expenses.peajeMonto ? `RD$ ${expenses.peajeMonto}` : 'Indicar RD$' }}</span>
             </button>
           </div>
 
@@ -412,6 +533,50 @@ const handleSubmit = () => {
             </div>
           </div>
 
+          <!-- Input para el monto de Peaje si está seleccionado -->
+          <div v-if="expenses.peaje" class="parqueo-subfield animate-fadeIn">
+            <label class="form-label text-xs">Monto pagado por Peaje / Viático (RD$) *</label>
+            <div class="price-input-wrapper">
+              <span class="currency-prefix">RD$</span>
+              <input 
+                v-model="expenses.peajeMonto"
+                type="number" 
+                step="1" 
+                min="1" 
+                class="form-control price-input with-prefix" 
+                placeholder="Ej: 250"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Selector de Estado del Reembolso (Pendiente para Planilla vs. Ya entregado en Efectivo) -->
+          <div v-if="effectiveTotalExpenses > 0" class="parqueo-subfield animate-fadeIn">
+            <label class="form-label text-xs" style="margin-bottom: 6px; display: block;">
+              ¿Cómo se maneja el reembolso de estos RD$ {{ effectiveTotalExpenses.toLocaleString('es-DO') }}?
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button
+                type="button"
+                :class="['expense-btn', { active: !expensePaidInCash }]"
+                style="padding: 8px 10px;"
+                @click="expensePaidInCash = false"
+              >
+                <span class="title">⏳ Pendiente de reembolso</span>
+                <span class="cost">Se sumará en la Planilla</span>
+              </button>
+              <button
+                type="button"
+                :class="['expense-btn', { active: expensePaidInCash }]"
+                style="padding: 8px 10px;"
+                @click="expensePaidInCash = true"
+              >
+                <span class="title">💵 Entregado en efectivo</span>
+                <span class="cost">Ya pagado el mismo día</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Observaciones Adicionales Libres (Opcional) -->
           <div class="mt-2.5">
             <input 
@@ -429,8 +594,8 @@ const handleSubmit = () => {
             Cancelar
           </button>
           <button type="submit" class="btn btn-primary" :disabled="loading">
-            <span v-if="loading">Registrando...</span>
-            <span v-else>Guardar Servicio</span>
+            <span v-if="loading">{{ isEditing ? 'Guardando cambios...' : 'Registrando...' }}</span>
+            <span v-else>{{ isEditing ? 'Guardar Cambios' : 'Guardar Servicio' }}</span>
           </button>
         </div>
       </form>
