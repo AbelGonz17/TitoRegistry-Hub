@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -7,9 +8,10 @@ using TitoRegistry.Application.Common.Interfaces;
 namespace TitoRegistry.Api.Controllers;
 
 /// <summary>
-/// Controlador de diagnóstico y salud del sistema TitoRegistry-Hub.
+/// Controlador de diagnóstico, salud y keep-alive (Cron Job) del sistema TitoRegistry-Hub.
 /// </summary>
 [ApiController]
+[AllowAnonymous]
 [Route("api/[controller]")]
 [Produces("application/json")]
 public class StatusController : ControllerBase
@@ -27,17 +29,10 @@ public class StatusController : ControllerBase
 
     /// <summary>
     /// Obtiene el estado de operatividad de la API y verifica la conectividad real con la base de datos.
+    /// Ideal para Cron Jobs (cron-job.org / UptimeRobot) porque mantiene despiertos tanto Render como Supabase.
     /// </summary>
-    /// <remarks>
-    /// Este endpoint realiza una comprobación activa:
-    /// - Valida que la API esté respondiendo.
-    /// - Ejecuta un chequeo de conexión con la base de datos configurada en Infrastructure.
-    /// - Si la base de datos no está disponible, responde con código HTTP 503 (Service Unavailable).
-    /// </remarks>
-    /// <returns>Detalles del estado del sistema y la base de datos.</returns>
-    /// <response code="200">El sistema y la base de datos se encuentran completamente operativos.</response>
-    /// <response code="503">La base de datos o un servicio crítico no está respondiendo.</response>
     [HttpGet]
+    [HttpHead]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
@@ -80,5 +75,16 @@ public class StatusController : ControllerBase
         }
 
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Endpoint ultraligero de ping (keep-alive) para Cron Jobs externos.
+    /// </summary>
+    [HttpGet("ping")]
+    [HttpHead("ping")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult Ping()
+    {
+        return Ok(new { ok = true, status = "awake", timestamp = DateTime.UtcNow });
     }
 }
