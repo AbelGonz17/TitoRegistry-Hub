@@ -89,16 +89,6 @@ const currentSectionInfo = computed(() => {
         <img src="/logo.png" alt="Transporte Tito" class="h-9 sm:h-10 md:h-11 w-auto object-contain drop-shadow-sm" />
       </div>
 
-      <!-- Título Dinámico Central (Visible en Móvil) -->
-      <div class="md:hidden flex items-center justify-center min-w-0 flex-1 px-1">
-        <div class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.12] shadow-sm select-none">
-          <component :is="currentSectionInfo.icon" class="w-4 h-4 text-brand-green-light shrink-0" />
-          <span class="text-[13px] font-bold text-white font-heading tracking-tight truncate max-w-[170px]">
-            {{ currentSectionInfo.title }}
-          </span>
-        </div>
-      </div>
-
       <!-- Navegación central (visible en Desktop) -->
       <nav class="hidden md:flex items-center gap-1.5 bg-brand-black/60 border border-brand-border rounded-xl p-1">
         <!-- Panel (Para todos) -->

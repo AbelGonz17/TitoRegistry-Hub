@@ -199,10 +199,10 @@ const formatDate = (dateStr?: string) => {
               {{ currentUser?.fullName || employeeSummary?.fullName || 'Conductor Tito' }}
             </h1>
 
-            <p class="text-[13px] text-slate-300 mt-1 flex items-center gap-1.5 flex-wrap">
+            <p class="text-[13px] text-slate-300 mt-1 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-1.5">
               <span class="text-slate-200 font-medium">{{ currentUser?.department || employeeSummary?.department || 'Transporte Urbano e Interurbano' }}</span>
-              <span class="opacity-50">•</span>
-              <span>Activo desde {{ formatDate(currentUser?.createdAt) }}</span>
+              <span class="hidden sm:inline opacity-50">•</span>
+              <span class="text-xs sm:text-[13px] text-slate-300">Activo desde {{ formatDate(currentUser?.createdAt) }}</span>
             </p>
           </div>
         </div>
@@ -213,12 +213,12 @@ const formatDate = (dateStr?: string) => {
     <!-- 2. INFORMACIÓN DEL PERFIL Y CONTACTO (ACCIÓN UNIFICADA)  -->
     <!-- ======================================================== -->
     <div class="bg-brand-card border border-brand-border rounded-2xl p-4 md:p-5 shadow-sm">
-      <div class="flex items-center justify-between mb-4 pb-3 border-b border-brand-border/40">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-brand-green/15 border border-brand-green/30 flex items-center justify-center text-brand-green-light">
+      <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-brand-border/40">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-lg bg-brand-green/15 border border-brand-green/30 flex items-center justify-center text-brand-green-light shrink-0">
             <UserIcon class="w-4 h-4" />
           </div>
-          <h2 class="text-sm md:text-base font-bold text-white uppercase tracking-wider font-heading">
+          <h2 class="text-sm md:text-base font-bold text-white uppercase tracking-wider font-heading truncate">
             Información de Contacto
           </h2>
         </div>
@@ -226,31 +226,31 @@ const formatDate = (dateStr?: string) => {
         <!-- Única acción para editar datos y perfil -->
         <button 
           type="button" 
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] text-[13px] text-brand-green-light hover:text-white font-semibold transition-all cursor-pointer"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] text-[13px] text-brand-green-light hover:text-white font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
           @click="isEditing ? cancelEditing() : startEditing()"
         >
-          <Pencil v-if="!isEditing" class="w-3.5 h-3.5" />
+          <Pencil v-if="!isEditing" class="w-3.5 h-3.5 shrink-0" />
           <span>{{ isEditing ? 'Cancelar' : 'Editar Perfil' }}</span>
         </button>
       </div>
 
       <!-- Vista de Datos con tipografía y colores consistentes -->
       <div v-if="!isEditing" class="flex flex-col gap-2.5 text-sm">
-        <div class="flex items-center justify-between gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
-          <span class="text-slate-300 font-medium">Nombre Completo:</span>
-          <span class="font-semibold text-white text-right">{{ currentUser?.fullName }}</span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
+          <span class="text-slate-300 font-medium text-xs sm:text-sm">Nombre Completo:</span>
+          <span class="font-semibold text-white sm:text-right">{{ currentUser?.fullName }}</span>
         </div>
-        <div class="flex items-center justify-between gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
-          <span class="text-slate-300 font-medium">Correo Electrónico:</span>
-          <span class="font-semibold text-white text-right break-all">{{ currentUser?.email }}</span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
+          <span class="text-slate-300 font-medium text-xs sm:text-sm">Correo Electrónico:</span>
+          <span class="font-semibold text-white sm:text-right break-words">{{ currentUser?.email }}</span>
         </div>
-        <div class="flex items-center justify-between gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
-          <span class="text-slate-300 font-medium">Teléfono Móvil:</span>
-          <span class="font-semibold text-white text-right">{{ currentUser?.phone || 'No registrado' }}</span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
+          <span class="text-slate-300 font-medium text-xs sm:text-sm">Teléfono Móvil:</span>
+          <span class="font-semibold text-white sm:text-right">{{ currentUser?.phone || 'No registrado' }}</span>
         </div>
-        <div class="flex items-center justify-between gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
-          <span class="text-slate-300 font-medium">Código de Conductor:</span>
-          <span class="font-semibold text-white text-right">{{ currentUser?.code || 'CHO-001' }}</span>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 p-3 rounded-xl bg-brand-black/40 border border-white/[0.05]">
+          <span class="text-slate-300 font-medium text-xs sm:text-sm">{{ isChofer ? 'Código de Conductor:' : 'Código de Usuario:' }}</span>
+          <span class="font-semibold text-white sm:text-right">{{ currentUser?.code || 'CHO-001' }}</span>
         </div>
       </div>
 

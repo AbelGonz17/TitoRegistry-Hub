@@ -595,28 +595,26 @@ const exportDriverServicesReport = () => {
             <ShieldCheck class="w-6 h-6" />
           </div>
 
-          <div class="flex flex-col">
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading tracking-tight leading-tight">
-                {{ currentUser?.fullName || 'Tito González' }}
-              </h1>
-              <div class="flex items-center gap-1.5">
-                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/[0.08] border border-white/[0.15] text-slate-200">
-                  {{ currentUser?.isSuperAdmin ? 'Propietario' : 'Administrador' }}
-                </span>
-                <span v-if="currentUser?.isSuperAdmin" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                  SuperAdmin
-                </span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-2 mt-1 text-[13px] text-slate-300 font-medium">
-              <span class="font-mono px-2 py-0.5 rounded bg-white/[0.06] border border-white/[0.1] text-slate-200 text-xs">
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-1.5 flex-wrap mb-1">
+              <span class="font-mono px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/[0.15] text-slate-200 text-xs font-bold whitespace-nowrap shrink-0">
                 {{ currentUser?.code || 'ADM-001' }}
               </span>
-              <span class="opacity-50">•</span>
-              <span class="truncate">Supervisión y Control de Flota</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/[0.08] border border-white/[0.15] text-slate-200 whitespace-nowrap shrink-0">
+                {{ currentUser?.isSuperAdmin ? 'Propietario' : 'Administrador' }}
+              </span>
+              <span v-if="currentUser?.isSuperAdmin" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300 whitespace-nowrap shrink-0">
+                SuperAdmin
+              </span>
             </div>
+
+            <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading tracking-tight leading-tight">
+              {{ currentUser?.fullName || 'Tito González' }}
+            </h1>
+
+            <p class="text-[13px] text-slate-300 font-medium mt-0.5">
+              Supervisión y Control de Flota
+            </p>
           </div>
         </div>
       </div>
