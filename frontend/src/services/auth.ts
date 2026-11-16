@@ -5,8 +5,8 @@
 import type { User, AuthSession } from '../types';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5107/api';
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
+const TOKEN_KEY = 'tito_auth_token';
+const USER_KEY = 'tito_auth_user';
 const REMEMBERED_EMAIL_KEY = 'tito_remembered_email';
 
 // Obtener correo recordado
@@ -34,7 +34,13 @@ export function setRememberedEmail(email: string, remember: boolean): void {
 // Obtener token activo
 export function getToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY) || null;
+    return (
+      localStorage.getItem(TOKEN_KEY) ||
+      sessionStorage.getItem(TOKEN_KEY) ||
+      localStorage.getItem('auth_token') ||
+      sessionStorage.getItem('auth_token') ||
+      null
+    );
   } catch {
     return null;
   }
@@ -77,24 +83,28 @@ export async function login(email: string, password: string, rememberUser: boole
   // Normalizar datos de usuario
   const user: User = {
     ...data.user,
-    avatar: data.user.avatar || (data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚚' : '👔')),
+    fullName: data.user.fullName || data.user.name || cleanEmail.split('@')[0],
+    avatar: data.user.avatar || (data.user.role === 'SuperAdmin' || data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚚' : '👔')),
     loggedAt: new Date().toISOString()
   };
 
   // Manejar persistencia de "Recordar mi usuario"
   setRememberedEmail(cleanEmail, rememberUser);
 
+  // Limpiar llaves genéricas antiguas
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_user');
+
   if (rememberUser) {
     localStorage.setItem(TOKEN_KEY, data.token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
-    localStorage.setItem('tito_current_user', JSON.stringify(user));
   } else {
     sessionStorage.setItem(TOKEN_KEY, data.token);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
-    sessionStorage.setItem('tito_current_user', JSON.stringify(user));
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('tito_current_user');
   }
 
   return { ...data, user };
@@ -120,23 +130,30 @@ export async function getCurrentUser(): Promise<User | null> {
     const user = await response.json();
     const normalized: User = {
       ...user,
-      avatar: user.avatar || (user.isSuperAdmin ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔')),
+      fullName: user.fullName || user.name || user.email?.split('@')[0] || 'Usuario',
+      avatar: user.avatar || (user.role === 'SuperAdmin' || user.isSuperAdmin ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔')),
     };
 
     if (localStorage.getItem(TOKEN_KEY)) {
       localStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      localStorage.setItem('tito_current_user', JSON.stringify(normalized));
     } else {
       sessionStorage.setItem(USER_KEY, JSON.stringify(normalized));
-      sessionStorage.setItem('tito_current_user', JSON.stringify(normalized));
     }
 
     return normalized;
   } catch (err) {
     console.warn('[Auth] Error al verificar token en /api/auth/me:', err);
+    // En caso de fallo de red, retornar usuario en caché si es válido de Tito
     try {
       const cached = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
-      return cached ? JSON.parse(cached) : null;
+      if (!cached) return null;
+      const parsed = JSON.parse(cached);
+      if (!parsed || (!parsed.fullName && !parsed.name) || parsed.email?.includes('@gym.com')) {
+        logout();
+        return null;
+      }
+      if (!parsed.fullName && parsed.name) parsed.fullName = parsed.name;
+      return parsed;
     } catch {
       return null;
     }
@@ -163,49 +180,57 @@ export async function logout(): Promise<void> {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem('tito_current_user');
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('auth_user');
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
   sessionStorage.removeItem('tito_current_user');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('auth_user');
 }
 
 // 4. Cambiar Contraseña (/api/auth/change-password)
-export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string; token?: string }> {
   const token = getToken();
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      },
-      body: JSON.stringify({ currentPassword, newPassword })
-    });
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
 
-    if (response.ok) {
-      const data = await response.json().catch(() => null);
-      return data || { success: true, message: 'Contraseña actualizada con éxito.' };
-    }
-
-    // Si el backend aún no ha habilitado la ruta (404 / 501 / 405)
-    if (response.status === 404 || response.status === 501 || response.status === 405) {
-      console.warn('El backend aún no tiene el endpoint /api/auth/change-password habilitado. Simulación exitosa en frontend.');
-      return { 
-        success: true, 
-        message: 'Contraseña cambiada exitosamente (guardado en frontend hasta habilitar backend).' 
-      };
-    }
-
+  if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     throw new Error(errorData?.message || `Error del servidor (${response.status})`);
-  } catch (err: any) {
-    if (err.message?.includes('Failed to fetch') || err.message?.includes('404')) {
-      return { 
-        success: true, 
-        message: 'Contraseña cambiada exitosamente (guardado en frontend hasta habilitar backend).' 
-      };
-    }
-    throw err;
   }
+
+  const data = await response.json().catch(() => null);
+
+  // Si el backend devuelve un nuevo token JWT actualizado, refrescar la sesión del cliente
+  if (data?.token) {
+    if (localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+    } else {
+      sessionStorage.setItem(TOKEN_KEY, data.token);
+    }
+
+    if (data.user) {
+      const normalizedUser: User = {
+        ...data.user,
+        fullName: data.user.fullName || data.user.name || 'Usuario',
+        avatar: data.user.avatar || (data.user.role === 'SuperAdmin' || data.user.isSuperAdmin ? '👑' : (data.user.role === 'Chofer' ? '🚗' : '👔')),
+      };
+      if (localStorage.getItem(USER_KEY)) {
+        localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+      } else {
+        sessionStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+      }
+    }
+  }
+
+  return data || { success: true, message: 'Contraseña actualizada con éxito.' };
 }
 
 export const authService = {

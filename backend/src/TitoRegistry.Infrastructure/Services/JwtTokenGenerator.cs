@@ -19,8 +19,11 @@ public class JwtTokenGenerator : IJwtTokenGenerator
 
     public (string Token, DateTime Expiration) GenerateToken(User user)
     {
-        var secret = _configuration["JwtSettings:Secret"] 
-            ?? "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+        var secret = _configuration["JwtSettings:Secret"];
+        if (string.IsNullOrWhiteSpace(secret) || secret.Length < 32)
+        {
+            secret = "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+        }
         var issuer = _configuration["JwtSettings:Issuer"] ?? "TitoRegistryApi";
         var audience = _configuration["JwtSettings:Audience"] ?? "TitoRegistryClient";
         var expirationDays = int.TryParse(_configuration["JwtSettings:ExpirationDays"], out int days) ? days : 7;
@@ -37,7 +40,8 @@ public class JwtTokenGenerator : IJwtTokenGenerator
             new(ClaimTypes.Role, user.Role.ToString()),
             new("code", user.Code),
             new("isSuperAdmin", (user.Role == TitoRegistry.Domain.Enums.UserRole.SuperAdmin).ToString().ToLowerInvariant()),
-            new("commissionRate", user.CommissionRate.ToString())
+            new("commissionRate", user.CommissionRate.ToString()),
+            new("mustChangePassword", user.MustChangePassword.ToString().ToLowerInvariant())
         };
 
         var expiration = DateTime.UtcNow.AddDays(expirationDays);

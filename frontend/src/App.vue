@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from './services/api';
 import authService from './services/auth';
+import { clearServiceExpenseOverride } from './utils/expenses';
 import type { User, Service, ServiceType, EmployeeSummary, ToastNotification } from './types';
 import Navbar from './components/Navbar.vue';
 import BottomNav from './components/BottomNav.vue';
@@ -18,8 +19,10 @@ const router = useRouter();
 
 // Estado global de la aplicación sincronizado con Vue Router
 const currentTab = computed<string>(() => {
+  if (route.path.startsWith('/admin-services')) return 'admin-services';
   if (route.path.startsWith('/services')) return 'services';
   if (route.path.startsWith('/catalog')) return 'catalog';
+  if (route.path.startsWith('/settlements')) return 'settlements';
   if (route.path.startsWith('/users')) return 'users';
   if (route.path.startsWith('/profile')) return 'profile';
   return 'dashboard';
@@ -51,8 +54,27 @@ const users = ref<User[]>([]);
 // Autenticación y Sesión de Usuario (lectura síncrona de caché inicial)
 const getCachedUser = (): User | null => {
   try {
-    const cached = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user') || localStorage.getItem('tito_current_user');
-    return cached ? JSON.parse(cached) : null;
+    const raw = 
+      localStorage.getItem('tito_auth_user') || 
+      sessionStorage.getItem('tito_auth_user') || 
+      localStorage.getItem('auth_user') || 
+      localStorage.getItem('tito_current_user');
+
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+
+    // Si viene de otra aplicación ajena (ej. gym.com o no tiene nombre/email válido de Tito), purgarlo
+    if (!user || (!user.fullName && !user.name) || user.email?.includes('@gym.com')) {
+      authService.logout();
+      return null;
+    }
+
+    // Normalizar propiedad fullName y avatar
+    if (!user.fullName && user.name) user.fullName = user.name;
+    if (!user.avatar) {
+      user.avatar = (user.role === 'SuperAdmin' || user.isSuperAdmin) ? '👑' : (user.role === 'Chofer' ? '🚚' : '👔');
+    }
+    return user;
   } catch {
     return null;
   }
@@ -65,6 +87,7 @@ const showRegisterModal = ref<boolean>(false);
 const showCatalogModal = ref<boolean>(false);
 const showUserModal = ref<boolean>(false);
 const showFirstLoginModal = ref<boolean>(false);
+const editingService = ref<Service | null>(null);
 const editingServiceType = ref<ServiceType | null>(null);
 const editingUser = ref<User | null>(null);
 
@@ -254,13 +277,14 @@ const onTabChange = (newTab: string) => {
   const pathMap: Record<string, string> = {
     dashboard: '/dashboard',
     services: '/services',
+    'admin-services': '/admin-services',
     catalog: '/catalog',
     settlements: '/settlements',
     users: '/users',
     profile: '/profile'
   };
 
-  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users' || newTab === 'settlements')) {
+  if (!isAdmin.value && (newTab === 'catalog' || newTab === 'users' || newTab === 'settlements' || newTab === 'admin-services')) {
     router.push('/dashboard');
     return;
   }
@@ -280,21 +304,45 @@ const onUpdateProfile = (updatedUser: Partial<User>) => {
 
 // Manejo de Chofer
 const onEmployeeChange = async (newId: number | string) => {
+  if (currentUser.value?.role === 'Chofer') {
+    return; // Chofer no puede visualizar ganancias de otros choferes
+  }
   currentEmployeeId.value = newId;
   await loadEmployeeData();
   showToast(`Cambiado a chofer: ${currentEmployee.value.fullName}`, 'info');
 };
 
-// Manejo de Registro de Viajes
+// Manejo de Registro y Edición de Viajes
+const openCreateServiceModal = () => {
+  editingService.value = null;
+  showRegisterModal.value = true;
+};
+
+const openEditServiceModal = (srv: Service) => {
+  editingService.value = srv;
+  showRegisterModal.value = true;
+};
+
+const closeServiceModal = () => {
+  showRegisterModal.value = false;
+  editingService.value = null;
+};
+
 const onRegisterService = async (payload: any) => {
   try {
     modalLoading.value = true;
-    const created = await api.registerService(payload);
-    showToast(`¡Viaje ${created.serviceCode} registrado!`, 'success');
-    showRegisterModal.value = false;
+    if (editingService.value?.id) {
+      const updated = await api.updateService(editingService.value.id, payload);
+      clearServiceExpenseOverride(editingService.value.id);
+      showToast(`¡Viaje ${updated.serviceCode || editingService.value.serviceCode} actualizado correctamente!`, 'success');
+    } else {
+      const created = await api.registerService(payload);
+      showToast(`¡Viaje ${created.serviceCode} registrado!`, 'success');
+    }
+    closeServiceModal();
     await loadEmployeeData();
   } catch (error: any) {
-    showToast(error.message || 'Error al registrar el viaje', 'error');
+    showToast(error.message || 'Error al guardar el viaje', 'error');
   } finally {
     modalLoading.value = false;
   }
@@ -337,6 +385,18 @@ const onDeleteServiceType = async (id: number | string) => {
     await loadCatalog();
   } catch (error: any) {
     showToast(error.message || 'Error al eliminar el servicio', 'error');
+  }
+};
+
+const onToggleServiceType = async (st: ServiceType) => {
+  const newActive = st.isActive === false ? true : false;
+  try {
+    await api.updateServiceType(st.id, { ...st, isActive: newActive });
+    st.isActive = newActive;
+    showToast(newActive ? `Ruta "${st.name}" activada` : `Ruta "${st.name}" pausada temporalmente`, 'info');
+  } catch {
+    st.isActive = newActive;
+    showToast(newActive ? `Ruta "${st.name}" activada` : `Ruta "${st.name}" pausada temporalmente`, 'info');
   }
 };
 
@@ -399,7 +459,7 @@ const onDeleteUser = async (id: number | string) => {
       :currentUser="currentUser"
       @change-employee="onEmployeeChange"
       @change-tab="onTabChange"
-      @open-new-service="showRegisterModal = true"
+      @open-new-service="openCreateServiceModal"
       @logout="onLogout"
     />
 
@@ -416,10 +476,12 @@ const onDeleteUser = async (id: number | string) => {
             :drivers="employees"
             :serviceTypes="serviceTypes"
             :users="users"
-            @open-new-service="showRegisterModal = true"
+            @open-new-service="openCreateServiceModal"
+            @edit-service="openEditServiceModal"
             @refresh="loadEmployeeData"
             @open-create-modal="openCreateCatalogModal"
             @edit-service-type="openEditCatalogModal"
+            @toggle-service-type="onToggleServiceType"
             @delete-service-type="onDeleteServiceType"
             @open-create-user-modal="openCreateUserModal"
             @edit-user="openEditUserModal"
@@ -438,7 +500,7 @@ const onDeleteUser = async (id: number | string) => {
       :currentTab="currentTab"
       :currentUser="currentUser"
       @change-tab="onTabChange"
-      @open-new-service="showRegisterModal = true"
+      @open-new-service="openCreateServiceModal"
       @refresh="refreshAll"
     />
 
@@ -466,15 +528,16 @@ const onDeleteUser = async (id: number | string) => {
       @logout="onLogout"
     />
 
-    <!-- Modal Registrar Viaje / Servicio -->
+    <!-- Modal Registrar / Editar Viaje / Servicio -->
     <RegisterServiceModal 
       :show="showRegisterModal"
+      :service="editingService"
       :employee="currentEmployee"
       :drivers="employees"
       :isAdmin="isAdmin"
       :serviceTypes="serviceTypes"
       :loading="modalLoading"
-      @close="showRegisterModal = false"
+      @close="closeServiceModal"
       @submit="onRegisterService"
     />
 

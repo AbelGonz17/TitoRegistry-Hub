@@ -5,6 +5,7 @@ import CatalogView from '../views/CatalogView.vue';
 import UsersView from '../views/UsersView.vue';
 import SettlementsView from '../views/SettlementsView.vue';
 import ProfileView from '../views/ProfileView.vue';
+import AdminServicesView from '../views/AdminServicesView.vue';
 import { getToken } from '../services/auth';
 
 const routes: RouteRecordRaw[] = [
@@ -31,6 +32,17 @@ const routes: RouteRecordRaw[] = [
       tabKey: 'services',
       icon: '🚐',
       driverOnly: true
+    }
+  },
+  {
+    path: '/admin-services',
+    name: 'admin-services',
+    component: AdminServicesView,
+    meta: {
+      title: 'Servicios por Chofer',
+      tabKey: 'admin-services',
+      icon: '🚐',
+      adminOnly: true
     }
   },
   {
@@ -96,16 +108,28 @@ router.beforeEach((to, _from, next) => {
   const token = getToken();
   let user: any = null;
   try {
-    const raw = localStorage.getItem('auth_user') || sessionStorage.getItem('auth_user');
+    const raw = 
+      localStorage.getItem('tito_auth_user') || 
+      sessionStorage.getItem('tito_auth_user') || 
+      localStorage.getItem('auth_user') || 
+      sessionStorage.getItem('auth_user') ||
+      localStorage.getItem('tito_current_user');
     if (raw) user = JSON.parse(raw);
   } catch {
     user = null;
   }
 
-  const isAdmin = user?.isSuperAdmin || user?.role === 'Administrador' || user?.role === 'SuperAdmin';
+  const isAdmin = !!(user?.isSuperAdmin || user?.role === 'Administrador' || user?.role === 'SuperAdmin');
+  const isDriver = user?.role === 'Chofer' || user?.role === 'Conductor';
+
+  // Si el visitante no está autenticado e intenta acceder a rutas exclusivas de chofer o admin
+  if (!token && (to.meta.adminOnly || to.meta.driverOnly)) {
+    next('/dashboard');
+    return;
+  }
 
   // Si intenta acceder a rutas exclusivas de admin siendo chofer
-  if (to.meta.adminOnly && !isAdmin && token) {
+  if (to.meta.adminOnly && isDriver && token) {
     next('/dashboard');
     return;
   }

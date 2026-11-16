@@ -1,6 +1,9 @@
 using System.Reflection;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -14,12 +17,27 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers con filtro de cambio de contraseña obligatorio
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<TitoRegistry.Api.Filters.MustChangePasswordFilter>();
+});
 
 // Configure JWT Authentication
-var jwtSecret = builder.Configuration["JwtSettings:Secret"] 
-    ?? "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+const string devDefaultSecret = "TransporteTitoSuperSecretKeyForJwtAuthenticationEnterprise2026!";
+var jwtSecret = builder.Configuration["JwtSettings:Secret"];
+if (builder.Environment.IsProduction())
+{
+    if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32 || jwtSecret == devDefaultSecret)
+    {
+        throw new InvalidOperationException("FATAL: En entorno de Producción, 'JwtSettings:Secret' debe configurarse mediante variable de entorno con un secreto único y no puede coincidir con la clave por defecto.");
+    }
+}
+else if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
+{
+    jwtSecret = devDefaultSecret;
+}
+
 var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "TitoRegistryApi";
 var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "TitoRegistryClient";
 
@@ -30,7 +48,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    options.RequireHttpsMetadata = false;
+    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     options.SaveToken = true;
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -43,20 +61,71 @@ builder.Services.AddAuthentication(options =>
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = context =>
+        {
+            var blacklist = context.HttpContext.RequestServices.GetRequiredService<ITokenBlacklistService>();
+            var jti = context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+            if (!string.IsNullOrEmpty(jti) && blacklist.IsBlacklisted(jti))
+            {
+                context.Fail("La sesión ha expirado o el token ha sido revocado.");
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization();
 
-// Configure CORS for Frontend
+// Soporte de Forwarded Headers para Render / Proxies Inversos
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+// Configure CORS for Frontend (Localhost + Producción Render/Vercel)
+var configuredOrigins = builder.Configuration["CorsSettings:AllowedOrigins"]?
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? Array.Empty<string>();
+
+var defaultOrigins = new[] { "http://localhost:5173", "http://127.0.0.1:5173" };
+var allAllowedOrigins = defaultOrigins.Union(configuredOrigins).Distinct().ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        if (allAllowedOrigins.Contains("*"))
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        }
+        else
+        {
+            policy.WithOrigins(allAllowedOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
     });
+});
+
+// Configure Rate Limiting for Auth particionado por IP remota
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("AuthLimit", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
 });
 
 // Configure Swagger / OpenAPI con soporte para Tokens JWT
@@ -134,7 +203,21 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// Proxies Inversos (Render)
+app.UseForwardedHeaders();
+
+// Security Headers Middleware
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    await next();
+});
+
 app.UseCors("AllowFrontend");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -142,4 +225,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-

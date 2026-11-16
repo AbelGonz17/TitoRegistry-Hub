@@ -37,7 +37,7 @@ public class UserService : IUserService
         return user != null ? MapToDto(user) : null;
     }
 
-    public async Task<UserDto> CreateUserAsync(CreateUserDto dto, CancellationToken cancellationToken = default)
+    public async Task<UserDto> CreateUserAsync(CreateUserDto dto, string? currentUserRole = null, CancellationToken cancellationToken = default)
     {
         var cleanEmail = dto.Email.Trim().ToLowerInvariant();
 
@@ -49,6 +49,13 @@ public class UserService : IUserService
 
         // Identificar rol correspondiente
         var userRole = ParseRole(dto.Role);
+
+        // SEC-02: Solo un SuperAdmin puede crear o asignar el rol SuperAdmin
+        if (userRole == UserRole.SuperAdmin && currentUserRole != "SuperAdmin")
+        {
+            throw new UnauthorizedAccessException("Acceso denegado: Solo un SuperAdmin puede crear cuentas con perfil SuperAdmin.");
+        }
+
         bool isDriver = userRole == UserRole.Chofer;
         string prefix = isDriver ? "CHO" : "ADM";
 
@@ -71,8 +78,11 @@ public class UserService : IUserService
 
         string code = $"{prefix}-{(maxNumber + 1):D3}";
 
-        // Si no se envía contraseña, la contraseña temporal es su propio código (ej: ADM-002 o CHO-003)
-        string initialPassword = string.IsNullOrWhiteSpace(dto.Password) ? code : dto.Password.Trim();
+        // SEC-05: Si no se envía contraseña, generar una contraseña temporal aleatoria segura
+        string initialPassword = string.IsNullOrWhiteSpace(dto.Password) 
+            ? GenerateSecureTemporaryPassword() 
+            : dto.Password.Trim();
+
         string passwordHash = _passwordHasher.HashPassword(initialPassword);
 
         var user = new User(
@@ -93,7 +103,7 @@ public class UserService : IUserService
         return MapToDto(user);
     }
 
-    public async Task<UserDto> UpdateUserAsync(int id, UpdateUserDto dto, CancellationToken cancellationToken = default)
+    public async Task<UserDto> UpdateUserAsync(int id, UpdateUserDto dto, string? currentUserRole = null, int? currentUserId = null, CancellationToken cancellationToken = default)
     {
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
@@ -102,6 +112,17 @@ public class UserService : IUserService
             throw new KeyNotFoundException($"No se encontró ningún usuario con Id {id}.");
 
         var userRole = ParseRole(dto.Role);
+
+        // SEC-02: Protección contra manipulación o escalación de SuperAdmin por un Administrador
+        if (user.Role == UserRole.SuperAdmin && currentUserRole != "SuperAdmin")
+        {
+            throw new UnauthorizedAccessException("Acceso denegado: Solo un SuperAdmin puede modificar el perfil o credenciales de otro SuperAdmin.");
+        }
+
+        if (userRole == UserRole.SuperAdmin && user.Role != UserRole.SuperAdmin && currentUserRole != "SuperAdmin")
+        {
+            throw new UnauthorizedAccessException("Acceso denegado: Solo un SuperAdmin puede ascender a un usuario al rol SuperAdmin.");
+        }
 
         user.UpdateProfile(
             fullName: dto.FullName,
@@ -122,7 +143,7 @@ public class UserService : IUserService
         return MapToDto(user);
     }
 
-    public async Task<bool> SoftDeleteUserAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<bool> SoftDeleteUserAsync(int id, string? currentUserRole = null, CancellationToken cancellationToken = default)
     {
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
@@ -130,9 +151,38 @@ public class UserService : IUserService
         if (user == null)
             return false;
 
+        // SEC-02: Impedir que un Administrador dé de baja al SuperAdmin
+        if (user.Role == UserRole.SuperAdmin && currentUserRole != "SuperAdmin")
+        {
+            throw new UnauthorizedAccessException("Acceso denegado: No está permitido eliminar a un SuperAdmin.");
+        }
+
         user.SoftDelete();
         await _context.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    private static string GenerateSecureTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lower = "abcdefghijkmnopqrstuvwxyz";
+        const string digits = "23456789";
+        const string specials = "!@#$%*";
+
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(12);
+        var chars = new char[12];
+        chars[0] = upper[bytes[0] % upper.Length];
+        chars[1] = lower[bytes[1] % lower.Length];
+        chars[2] = digits[bytes[2] % digits.Length];
+        chars[3] = specials[bytes[3] % specials.Length];
+
+        const string allChars = upper + lower + digits + specials;
+        for (int i = 4; i < 12; i++)
+        {
+            chars[i] = allChars[bytes[i] % allChars.Length];
+        }
+
+        return new string(chars);
     }
 
     private static UserRole ParseRole(string role)

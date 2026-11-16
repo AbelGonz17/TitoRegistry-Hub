@@ -9,7 +9,11 @@ interface RequestOptions extends RequestInit {
 
 async function request<T = any>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  const token = 
+    localStorage.getItem('tito_auth_token') || 
+    sessionStorage.getItem('tito_auth_token') || 
+    localStorage.getItem('auth_token') || 
+    sessionStorage.getItem('auth_token');
 
   const config: RequestOptions = {
     headers: {
@@ -31,8 +35,14 @@ async function request<T = any>(endpoint: string, options: RequestOptions = {}):
 
     if (!response.ok) {
       if (response.status === 401) {
+        localStorage.removeItem('tito_auth_token');
+        sessionStorage.removeItem('tito_auth_token');
+        localStorage.removeItem('tito_auth_user');
+        sessionStorage.removeItem('tito_auth_user');
         localStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        sessionStorage.removeItem('auth_user');
       }
       const errorMessage = data?.message || data?.title || `Error en la solicitud: ${response.status} ${response.statusText}`;
       throw new Error(errorMessage);
@@ -163,6 +173,20 @@ export const api = {
     };
     return request<Service>('/services', {
       method: 'POST',
+      body: JSON.stringify(body),
+    });
+  },
+  updateService: (id: number | string, payload: any): Promise<Service> => {
+    const body = {
+      serviceTypeId: Number(payload.serviceTypeId),
+      clientReference: payload.clientReference || payload.clientName,
+      description: payload.description || payload.clientAddress || `Servicio realizado para ${payload.clientName || 'cliente'}`,
+      serviceDate: payload.serviceDate || new Date().toISOString(),
+      priceCharged: Number(payload.priceCharged),
+      notes: payload.notes ?? ''
+    };
+    return request<Service>(`/services/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(body),
     });
   },

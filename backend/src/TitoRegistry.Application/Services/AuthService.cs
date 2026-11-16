@@ -29,35 +29,9 @@ public class AuthService : IAuthService
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == cleanEmail && !u.IsDeleted, cancellationToken);
 
-        // Si la base de datos no tiene usuarios creados, aprovisionar al primer usuario como SuperAdmin automáticamente
         if (user == null)
         {
-            int totalUsers = await _context.Users.CountAsync(cancellationToken);
-            if (totalUsers == 0)
-            {
-                string displayName = cleanEmail.Split('@')[0].Replace('.', ' ').Replace('_', ' ');
-                if (string.IsNullOrWhiteSpace(displayName)) displayName = "Super Administrador";
-
-                string passwordHash = _passwordHasher.HashPassword(request.Password);
-
-                user = new User(
-                    code: "ADM-001",
-                    fullName: char.ToUpper(displayName[0]) + displayName[1..],
-                    email: cleanEmail,
-                    passwordHash: passwordHash,
-                    phone: "",
-                    role: UserRole.SuperAdmin,
-                    department: "Dirección General & Propietario",
-                    commissionRate: 0
-                );
-
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-            else
-            {
-                throw new UnauthorizedAccessException("Credenciales incorrectas o usuario no registrado.");
-            }
+            throw new UnauthorizedAccessException("Credenciales incorrectas o usuario no registrado.");
         }
 
         if (!user.IsActive)
@@ -90,7 +64,7 @@ public class AuthService : IAuthService
         return user != null ? MapToDto(user) : null;
     }
 
-    public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
+    public async Task<AuthResponseDto> ChangePasswordAsync(int userId, ChangePasswordDto dto, CancellationToken cancellationToken = default)
     {
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == userId && !u.IsDeleted, cancellationToken);
@@ -109,7 +83,16 @@ public class AuthService : IAuthService
         user.CompleteFirstPasswordChange(newHash);
 
         await _context.SaveChangesAsync(cancellationToken);
-        return true;
+
+        // Emitir un nuevo token JWT con mustChangePassword = false
+        var (newToken, expiration) = _jwtTokenGenerator.GenerateToken(user);
+
+        return new AuthResponseDto
+        {
+            Token = newToken,
+            Expiration = expiration,
+            User = MapToDto(user)
+        };
     }
 
     private static UserDto MapToDto(User user) => new()

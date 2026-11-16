@@ -94,16 +94,18 @@ const handleSubmit = () => {
         <div class="form-row">
           <div class="form-group flex-1">
             <label class="form-label">Categoría *</label>
-            <input 
+            <select 
               v-model="formData.category"
-              type="text" 
               class="form-control" 
-              placeholder="Ej: Viajes Interurbanos, Carga, Aeropuerto" 
               required
-            />
+            >
+              <option value="Aeropuerto">Aeropuerto</option>
+              <option value="Urbano / Ciudad">Urbano / Ciudad</option>
+              <option value="Interior / Interurbano">Interior / Interurbano</option>
+            </select>
           </div>
           <div class="form-group flex-1">
-            <label class="form-label">Tarifa Base Sugerida ($) *</label>
+            <label class="form-label">Tarifa Base Sugerida (RD$) *</label>
             <input 
               v-model="formData.defaultPrice"
               type="number" 

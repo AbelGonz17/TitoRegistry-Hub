@@ -24,6 +24,7 @@ public static class DependencyInjection
         // Servicios de seguridad y tokens
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
+        services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
 
         return services;
     }

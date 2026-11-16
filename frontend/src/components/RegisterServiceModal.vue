@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
-import type { ServiceType, User } from '../types';
+import type { Service, ServiceType, User } from '../types';
+import { parseServiceExpense } from '../utils/expenses';
 
 const props = defineProps<{
   show: boolean;
+  service?: Service | null;
   employee?: { id?: number | string; fullName?: string; commissionRate?: number; role?: string };
   drivers?: User[];
   isAdmin?: boolean;
@@ -15,6 +17,8 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'submit', payload: any): void;
 }>();
+
+const isEditing = computed(() => !!props.service?.id);
 
 // Formulario reactivo alineado con el registro oficial
 const formData = ref({
@@ -29,22 +33,170 @@ const formData = ref({
 
 const errorMessage = ref('');
 
-// Al abrir el modal, inicializar datos
-watch(() => props.show, (newVal) => {
+// Estado de dietas / gastos opcionales
+const expenses = ref({
+  desayuno: false,
+  comida: false,
+  cena: false,
+  parqueo: false,
+  parqueoMonto: '' as string | number,
+  peaje: false,
+  peajeMonto: '' as string | number
+});
+const expensePaidInCash = ref(false);
+const manualNotes = ref('');
+
+// Total de dietas / gastos calculados por botones
+const totalExpenses = computed(() => {
+  let total = 0;
+  if (expenses.value.desayuno) total += 200;
+  if (expenses.value.comida) total += 300;
+  if (expenses.value.cena) total += 200;
+  if (expenses.value.parqueo) total += (Number(expenses.value.parqueoMonto) || 0);
+  if (expenses.value.peaje) total += (Number(expenses.value.peajeMonto) || 0);
+  return total;
+});
+
+// Gastos detectados en notas escritas manualmente (ej. "Utilice 250 de peaje")
+const manualNoteExpenseAmount = computed(() => {
+  return parseServiceExpense(manualNotes.value).amount;
+});
+
+const effectiveTotalExpenses = computed(() => {
+  return totalExpenses.value + manualNoteExpenseAmount.value;
+});
+
+const toggleParqueo = () => {
+  expenses.value.parqueo = !expenses.value.parqueo;
+  if (!expenses.value.parqueo) {
+    expenses.value.parqueoMonto = '';
+  }
+};
+
+const togglePeaje = () => {
+  expenses.value.peaje = !expenses.value.peaje;
+  if (!expenses.value.peaje) {
+    expenses.value.peajeMonto = '';
+  }
+};
+
+const setPrefix = (prefix: string) => {
+  formData.value.description = prefix;
+};
+
+// Obtener el prefijo sugerido según la ruta / tipo de servicio
+const getSuggestedPrefix = (typeId?: number | string) => {
+  if (!typeId) return 'Servicio de transporte ';
+  const selected = props.serviceTypes?.find(s => s.id === Number(typeId));
+  if (!selected) return 'Servicio de transporte ';
+  const name = (selected.name || '').toLowerCase();
+  const cat = (selected.category || '').toLowerCase();
+  if (name.includes('aero') || cat.includes('aero')) {
+    return 'Servicio de transporte al aeropuerto ';
+  }
+  if (name.includes('ciudad') || name.includes('urbano') || cat.includes('ciudad') || cat.includes('urbano')) {
+    return 'Servicio de transporte en la ciudad ';
+  }
+  return `Servicio de transporte ${selected.name} `;
+};
+
+// Al abrir el modal, inicializar datos (nuevo registro o edición de servicio existente)
+watch(() => [props.show, props.service] as const, ([newVal, srv]) => {
   if (newVal) {
     errorMessage.value = '';
-    const initialDriverId = props.employee?.id || (props.drivers && props.drivers.length > 0 ? props.drivers[0].id : '');
-    const firstServiceType = props.serviceTypes && props.serviceTypes.length > 0 ? props.serviceTypes[0] : null;
 
-    formData.value = {
-      driverId: initialDriverId,
-      clientReference: '',
-      serviceTypeId: firstServiceType ? firstServiceType.id : '',
-      description: '',
-      serviceDate: new Date().toISOString().slice(0, 10),
-      priceCharged: firstServiceType ? (firstServiceType as any).defaultPrice || (firstServiceType as any).basePrice || '' : '',
-      notes: ''
-    };
+    if (srv && srv.id) {
+      // Modo Edición: Precargar datos del servicio seleccionado
+      const parsedExp = parseServiceExpense(srv.notes, srv.id);
+      expensePaidInCash.value = parsedExp.paidInCash;
+
+      let cleanNotes = (srv.notes || '')
+        .replace(/\[PAGADO EN EFECTIVO\]\s*/gi, '')
+        .replace(/\[PENDIENTE REEMBOLSO\]\s*/gi, '')
+        .trim();
+
+      let desayuno = false;
+      let comida = false;
+      let cena = false;
+      let parqueo = false;
+      let parqueoMonto: string | number = '';
+      let peaje = false;
+      let peajeMonto: string | number = '';
+      let restManual = '';
+
+      if (/^Dietas\/Gastos:/i.test(cleanNotes)) {
+        const splitParts = cleanNotes.split(' | ');
+        const dietasPart = splitParts[0] || '';
+        restManual = splitParts.slice(1).join(' | ').trim();
+
+        desayuno = /Desayuno\s*\(RD\$\s*200\)/i.test(dietasPart);
+        comida = /Comida\s*\(RD\$\s*300\)/i.test(dietasPart);
+        cena = /Cena\s*\(RD\$\s*200\)/i.test(dietasPart);
+
+        const parqMatch = dietasPart.match(/Parqueo Aeropuerto\s*\(RD\$\s*([\d,]+(?:\.\d+)?)\)/i);
+        if (parqMatch) {
+          parqueo = true;
+          parqueoMonto = Number(parqMatch[1].replace(/,/g, '')) || '';
+        }
+
+        const peajeMatch = dietasPart.match(/Peaje\s*\(RD\$\s*([\d,]+(?:\.\d+)?)\)/i);
+        if (peajeMatch) {
+          peaje = true;
+          peajeMonto = Number(peajeMatch[1].replace(/,/g, '')) || '';
+        }
+      } else {
+        restManual = cleanNotes;
+      }
+
+      expenses.value = {
+        desayuno,
+        comida,
+        cena,
+        parqueo,
+        parqueoMonto,
+        peaje,
+        peajeMonto
+      };
+      manualNotes.value = restManual;
+
+      formData.value = {
+        driverId: srv.driverId || srv.employeeId || props.employee?.id || '',
+        clientReference: srv.clientReference || srv.clientName || '',
+        serviceTypeId: srv.serviceTypeId || '',
+        description: srv.description || srv.clientAddress || '',
+        serviceDate: (srv.serviceDate || new Date().toISOString()).slice(0, 10),
+        priceCharged: srv.priceCharged ?? '',
+        notes: srv.notes || ''
+      };
+    } else {
+      // Modo Creación: Valores por defecto
+      const initialDriverId = props.employee?.id || (props.drivers && props.drivers.length > 0 ? props.drivers[0].id : '');
+      const firstServiceType = props.serviceTypes && props.serviceTypes.length > 0 ? props.serviceTypes[0] : null;
+
+      expenses.value = {
+        desayuno: false,
+        comida: false,
+        cena: false,
+        parqueo: false,
+        parqueoMonto: '',
+        peaje: false,
+        peajeMonto: ''
+      };
+      expensePaidInCash.value = false;
+      manualNotes.value = '';
+
+      const initialPrefix = firstServiceType ? getSuggestedPrefix(firstServiceType.id) : 'Servicio de transporte ';
+
+      formData.value = {
+        driverId: initialDriverId,
+        clientReference: '',
+        serviceTypeId: firstServiceType ? firstServiceType.id : '',
+        description: initialPrefix,
+        serviceDate: new Date().toISOString().slice(0, 10),
+        priceCharged: firstServiceType ? (firstServiceType as any).defaultPrice || (firstServiceType as any).basePrice || '' : '',
+        notes: ''
+      };
+    }
   }
 });
 
@@ -56,7 +208,7 @@ const activeDriver = computed(() => {
   return props.employee;
 });
 
-// Cuando cambia el tipo de servicio seleccionado, sugerir el precio base del catálogo
+// Cuando cambia el tipo de servicio seleccionado, sugerir el precio base del catálogo y el prefijo de descripción
 const onServiceTypeChange = (event: Event) => {
   const target = event.target as HTMLSelectElement;
   const typeId = Number(target.value);
@@ -65,6 +217,12 @@ const onServiceTypeChange = (event: Event) => {
   const basePrice = (selected as any)?.defaultPrice ?? (selected as any)?.basePrice;
   if (selected && (!formData.value.priceCharged || Number(formData.value.priceCharged) === 0)) {
     formData.value.priceCharged = basePrice || '';
+  }
+
+  // Actualizar el prefijo de la descripción si está vacío o si tiene un prefijo sugerido previo
+  const newPrefix = getSuggestedPrefix(typeId);
+  if (!formData.value.description || formData.value.description.startsWith('Servicio de transporte')) {
+    formData.value.description = newPrefix;
   }
 };
 
@@ -104,6 +262,42 @@ const handleSubmit = () => {
     errorMessage.value = 'El Precio del Servicio debe ser mayor a 0.';
     return;
   }
+  if (expenses.value.parqueo && (!expenses.value.parqueoMonto || Number(expenses.value.parqueoMonto) <= 0)) {
+    errorMessage.value = 'Por favor ingresa el monto pagado por el Parqueo del Aeropuerto.';
+    return;
+  }
+  if (expenses.value.peaje && (!expenses.value.peajeMonto || Number(expenses.value.peajeMonto) <= 0)) {
+    errorMessage.value = 'Por favor ingresa el monto pagado por Peaje / Otros gastos.';
+    return;
+  }
+
+  // Construir las notas con dietas / gastos seleccionados
+  const parts: string[] = [];
+  if (expenses.value.desayuno) parts.push('Desayuno (RD$ 200)');
+  if (expenses.value.comida) parts.push('Comida (RD$ 300)');
+  if (expenses.value.cena) parts.push('Cena (RD$ 200)');
+  if (expenses.value.parqueo) {
+    const monto = Number(expenses.value.parqueoMonto) || 0;
+    parts.push(`Parqueo Aeropuerto (RD$ ${monto.toLocaleString('es-DO')})`);
+  }
+  if (expenses.value.peaje) {
+    const montoPeaje = Number(expenses.value.peajeMonto) || 0;
+    parts.push(`Peaje (RD$ ${montoPeaje.toLocaleString('es-DO')})`);
+  }
+
+  let finalNotes = '';
+  if (parts.length > 0) {
+    const statusTag = expensePaidInCash.value ? '[PAGADO EN EFECTIVO] ' : '';
+    finalNotes = `${statusTag}Dietas/Gastos: ${parts.join(', ')}`;
+  }
+  if (manualNotes.value.trim()) {
+    const noteText = manualNotes.value.trim();
+    if (!finalNotes && expensePaidInCash.value) {
+      finalNotes = `[PAGADO EN EFECTIVO] ${noteText}`;
+    } else {
+      finalNotes = finalNotes ? `${finalNotes} | ${noteText}` : noteText;
+    }
+  }
 
   const payload = {
     driverId: Number(driverId),
@@ -114,7 +308,7 @@ const handleSubmit = () => {
     description: formData.value.description.trim(),
     serviceDate: new Date(formData.value.serviceDate).toISOString(),
     priceCharged: price,
-    notes: formData.value.notes.trim()
+    notes: finalNotes
   };
 
   emit('submit', payload);
@@ -127,10 +321,12 @@ const handleSubmit = () => {
       <!-- Encabezado del Modal -->
       <div class="modal-header">
         <div class="header-titles">
-          <div class="badge-tag">🚐 Transporte Tito</div>
-          <h2 class="modal-title">Registrar Servicio</h2>
+          <div class="badge-tag">
+            🚐 Transporte Tito {{ isEditing && service?.serviceCode ? `• ${service.serviceCode}` : '' }}
+          </div>
+          <h2 class="modal-title">{{ isEditing ? 'Editar Servicio Registrado' : 'Registrar Servicio' }}</h2>
           <p class="modal-subtitle">
-            Formulario oficial de registro de servicios y viajes
+            {{ isEditing ? 'Actualiza el cliente, ruta, monto cobrado o viáticos del viaje' : 'Formulario oficial de registro de servicios y viajes' }}
           </p>
         </div>
         <button class="btn-close" @click="$emit('close')" aria-label="Cerrar">&times;</button>
@@ -144,7 +340,7 @@ const handleSubmit = () => {
         </div>
 
         <!-- 1. Chofer / Conductor (* Elegir) -->
-        <div class="form-group" v-if="isAdmin && drivers && drivers.length > 0">
+        <div class="form-group" v-if="!isEditing && isAdmin && drivers && drivers.length > 0">
           <label class="form-label">Chofer Asignado *</label>
           <select 
             v-model="formData.driverId" 
@@ -204,6 +400,24 @@ const handleSubmit = () => {
             placeholder="Indica el origen, destino, paradas o detalle del servicio completado..."
             required
           ></textarea>
+          <!-- Sugerencias Rápidas de Prefijo -->
+          <div class="quick-prefix-row">
+            <span class="quick-hint">Sugerencia rápida:</span>
+            <button 
+              type="button" 
+              class="quick-tag-btn"
+              @click="setPrefix('Servicio de transporte al aeropuerto ')"
+            >
+              ✈️ Al Aeropuerto...
+            </button>
+            <button 
+              type="button" 
+              class="quick-tag-btn"
+              @click="setPrefix('Servicio de transporte en la ciudad ')"
+            >
+              🏙️ En la Ciudad...
+            </button>
+          </div>
         </div>
 
         <!-- 5 y 6. FECHA DEL SERVICIO * y PRECIO DEL SERVICIO * -->
@@ -234,32 +448,144 @@ const handleSubmit = () => {
           </div>
         </div>
 
-        <!-- Caja de Cálculo en Vivo de Comisión para el Chofer -->
-        <div class="earnings-preview-card">
-          <div class="preview-header">
-            <span class="preview-badge">Comisión en Tiempo Real</span>
-            <span class="rate-tag">{{ activeDriver?.commissionRate || 25 }}% Chofer</span>
-          </div>
-          <div class="preview-body">
-            <div class="preview-amount">
-              <span class="currency">RD$</span>
-              <span class="val">{{ estimatedEarnings }}</span>
-            </div>
-            <p class="preview-desc">
-              Esta es la ganancia neta directa que se sumará al historial de comisiones de <strong>{{ activeDriver?.fullName || 'chofer' }}</strong>.
-            </p>
-          </div>
-        </div>
-
-        <!-- Observaciones / Notas Adicionales (Opcional) -->
+        <!-- Observaciones / Dietas y Gastos Operativos -->
         <div class="form-group">
-          <label class="form-label">Observaciones Adicionales (Opcional)</label>
-          <input 
-            v-model="formData.notes"
-            type="text"
-            class="form-control" 
-            placeholder="Peajes, número de guía, condiciones especiales..."
-          />
+          <div class="expense-header-row">
+            <label class="form-label" style="margin-bottom: 0;">Observaciones y Dietas (Opcional)</label>
+            <span v-if="effectiveTotalExpenses > 0" class="badge-total-expenses">
+              Total Viáticos: RD$ {{ effectiveTotalExpenses.toLocaleString('es-DO') }}
+            </span>
+          </div>
+
+          <p class="field-hint-clean">Selecciona si este viaje incluyó alguna dieta o gasto:</p>
+
+          <div class="expense-chips-grid">
+            <!-- Desayuno: RD$ 200 -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.desayuno }]"
+              @click="expenses.desayuno = !expenses.desayuno"
+            >
+              <span class="icon">🍳</span>
+              <span class="title">Desayuno</span>
+              <span class="cost">RD$ 200</span>
+            </button>
+
+            <!-- Comida: RD$ 300 -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.comida }]"
+              @click="expenses.comida = !expenses.comida"
+            >
+              <span class="icon">🍲</span>
+              <span class="title">Comida</span>
+              <span class="cost">RD$ 300</span>
+            </button>
+
+            <!-- Cena: RD$ 200 -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.cena }]"
+              @click="expenses.cena = !expenses.cena"
+            >
+              <span class="icon">🍽️</span>
+              <span class="title">Cena</span>
+              <span class="cost">RD$ 200</span>
+            </button>
+
+            <!-- Parqueo Aeropuerto -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.parqueo }]"
+              @click="toggleParqueo"
+            >
+              <span class="icon">🅿️</span>
+              <span class="title">Parqueo Aeropuerto</span>
+              <span class="cost">{{ expenses.parqueo && expenses.parqueoMonto ? `RD$ ${expenses.parqueoMonto}` : 'Indicar RD$' }}</span>
+            </button>
+
+            <!-- Peaje / Otros Gastos Numéricos -->
+            <button 
+              type="button" 
+              :class="['expense-btn', { active: expenses.peaje }]"
+              @click="togglePeaje"
+            >
+              <span class="icon">🛣️</span>
+              <span class="title">Peaje / Gasto</span>
+              <span class="cost">{{ expenses.peaje && expenses.peajeMonto ? `RD$ ${expenses.peajeMonto}` : 'Indicar RD$' }}</span>
+            </button>
+          </div>
+
+          <!-- Input para el monto de Parqueo si está seleccionado -->
+          <div v-if="expenses.parqueo" class="parqueo-subfield animate-fadeIn">
+            <label class="form-label text-xs">Monto pagado por Parqueo Aeropuerto (RD$) *</label>
+            <div class="price-input-wrapper">
+              <span class="currency-prefix">RD$</span>
+              <input 
+                v-model="expenses.parqueoMonto"
+                type="number" 
+                step="1" 
+                min="1" 
+                class="form-control price-input with-prefix" 
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Input para el monto de Peaje si está seleccionado -->
+          <div v-if="expenses.peaje" class="parqueo-subfield animate-fadeIn">
+            <label class="form-label text-xs">Monto pagado por Peaje / Viático (RD$) *</label>
+            <div class="price-input-wrapper">
+              <span class="currency-prefix">RD$</span>
+              <input 
+                v-model="expenses.peajeMonto"
+                type="number" 
+                step="1" 
+                min="1" 
+                class="form-control price-input with-prefix" 
+                placeholder="Ej: 250"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Selector de Estado del Reembolso (Pendiente para Planilla vs. Ya entregado en Efectivo) -->
+          <div v-if="effectiveTotalExpenses > 0" class="parqueo-subfield animate-fadeIn">
+            <label class="form-label text-xs" style="margin-bottom: 6px; display: block;">
+              ¿Cómo se maneja el reembolso de estos RD$ {{ effectiveTotalExpenses.toLocaleString('es-DO') }}?
+            </label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button
+                type="button"
+                :class="['expense-btn', { active: !expensePaidInCash }]"
+                style="padding: 8px 10px;"
+                @click="expensePaidInCash = false"
+              >
+                <span class="title">⏳ Pendiente de reembolso</span>
+                <span class="cost">Se sumará en la Planilla</span>
+              </button>
+              <button
+                type="button"
+                :class="['expense-btn', { active: expensePaidInCash }]"
+                style="padding: 8px 10px;"
+                @click="expensePaidInCash = true"
+              >
+                <span class="title">💵 Entregado en efectivo</span>
+                <span class="cost">Ya pagado el mismo día</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Observaciones Adicionales Libres (Opcional) -->
+          <div class="mt-2.5">
+            <input 
+              v-model="manualNotes"
+              type="text"
+              class="form-control" 
+              placeholder="Otras notas (opcional: peajes, número de guía, condiciones...)"
+            />
+          </div>
         </div>
 
         <!-- Botones de Acción -->
@@ -268,8 +594,8 @@ const handleSubmit = () => {
             Cancelar
           </button>
           <button type="submit" class="btn btn-primary" :disabled="loading">
-            <span v-if="loading">Registrando...</span>
-            <span v-else>Guardar Servicio</span>
+            <span v-if="loading">{{ isEditing ? 'Guardando cambios...' : 'Registrando...' }}</span>
+            <span v-else>{{ isEditing ? 'Guardar Cambios' : 'Guardar Servicio' }}</span>
           </button>
         </div>
       </form>
@@ -481,6 +807,138 @@ const handleSubmit = () => {
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--brand-border);
+}
+
+/* Sugerencias Rápidas de Descripción */
+.quick-prefix-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.quick-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.quick-tag-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--brand-border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.quick-tag-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--brand-green-light);
+  border-color: var(--brand-green);
+}
+
+/* Sección de Dietas y Gastos */
+.expense-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.badge-total-expenses {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-green-light);
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.field-hint-clean {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.expense-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (min-width: 500px) {
+  .expense-chips-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.expense-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.expense-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--brand-border-strong);
+  color: #ffffff;
+}
+
+.expense-btn.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--brand-green-light);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+}
+
+.expense-btn .icon {
+  font-size: 1.15rem;
+}
+
+.expense-btn .title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.expense-btn .cost {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--brand-green-light);
+  background: rgba(34, 197, 94, 0.12);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  margin-top: 2px;
+}
+
+.expense-btn.active .cost {
+  background: var(--brand-green);
+  color: #0b1510;
+}
+
+.parqueo-subfield {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--brand-green-light);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
 }
 
 @media (max-width: 600px) {
