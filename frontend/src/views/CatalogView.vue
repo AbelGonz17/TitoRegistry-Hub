@@ -185,9 +185,9 @@ const executeDelete = (id: number | string) => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- 2. RESUMEN EN 2×2 CON CONTADORES EXACTOS Y MONEDA RD$     -->
+    <!-- 2. RESUMEN CON CONTADORES EXACTOS Y MONEDA RD$            -->
     <!-- ======================================================== -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       <!-- Tarjeta 1: Todas las rutas -->
       <button 
         type="button"

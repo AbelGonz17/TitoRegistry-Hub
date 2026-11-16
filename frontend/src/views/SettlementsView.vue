@@ -608,7 +608,7 @@ const formatDate = (dateStr: string) => {
     <!-- ======================================================== -->
     <!-- TARJETAS DE RESUMEN EJECUTIVO                            -->
     <!-- ======================================================== -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 print:hidden">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 print:hidden">
       <!-- 1. Cantidad de Viajes -->
       <div class="p-4 bg-brand-card border border-brand-border rounded-xl shadow-card flex items-center justify-between gap-2">
         <div>

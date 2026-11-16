@@ -176,9 +176,9 @@ const getRoleBadgeClasses = (role?: string, isSuperAdmin?: boolean) => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- 2. RESUMEN 2×2 CON SUBTÍTULOS PRECISOS                   -->
+    <!-- 2. RESUMEN CON SUBTÍTULOS PRECISOS                       -->
     <!-- ======================================================== -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       <!-- Tarjeta 1: Todos los usuarios -->
       <button 
         type="button"
