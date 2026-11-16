@@ -1,11 +1,3 @@
-﻿databases:
-  - name: titoregistry-db
-    databaseName: titoregistry_db
-    user: titouser
-    region: oregon
-    plan: free
-    postgresMajorVersion: "16"
-
 services:
   - type: web
     name: titoregistry-api
@@ -20,9 +12,7 @@ services:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       - key: ConnectionStrings__DefaultConnection
-        fromDatabase:
-          name: titoregistry-db
-          property: connectionString
+        sync: false
       - key: JwtSettings__Secret
         generateValue: true
       - key: JwtSettings__Issuer
