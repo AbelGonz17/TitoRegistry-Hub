@@ -14,7 +14,7 @@ services:
     dockerContext: backend
     region: oregon
     plan: free
-    branch: develop
+    branch: main
     healthCheckPath: /api/status
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
