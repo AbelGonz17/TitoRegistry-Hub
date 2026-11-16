@@ -405,11 +405,6 @@ const exportReport = () => {
             <Car class="w-6 h-6" />
           </div>
           <div>
-            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-green/15 text-brand-green-light border border-brand-green/30 uppercase tracking-wider mb-1">
-              <span>Supervisión de Flota</span>
-              <span class="opacity-60">•</span>
-              <span>Reportes Oficiales</span>
-            </div>
             <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading leading-tight">
               Servicios por Chofer
             </h1>
@@ -530,8 +525,6 @@ const exportReport = () => {
       <!-- Resumen compacto del chofer activo -->
       <div v-if="currentDriver" class="flex items-center gap-3 text-[13px] text-slate-200 bg-brand-black/40 px-3.5 py-2 rounded-xl border border-white/[0.06]">
         <span><strong>Código:</strong> {{ currentDriver.code || 'CHO-001' }}</span>
-        <span class="opacity-40">•</span>
-        <span><strong>Comisión:</strong> {{ currentDriver.commissionRate || 25 }}%</span>
         <span v-if="currentDriver.phone" class="opacity-40 hidden sm:inline">•</span>
         <span v-if="currentDriver.phone" class="hidden sm:inline">{{ currentDriver.phone }}</span>
       </div>
@@ -541,9 +534,9 @@ const exportReport = () => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- 3. TARJETAS DE MÉTRICAS (SIN COLOR AMARILLO DE ALERTA)   -->
+    <!-- 3. TARJETAS DE MÉTRICAS ESENCIALES (3 TARJETAS LIMPIAS)  -->
     <!-- ======================================================== -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
       <!-- Métrica 1: Viajes Realizados -->
       <div class="bg-brand-card border border-brand-border rounded-xl p-4 shadow-sm flex flex-col justify-between">
         <div class="flex items-center justify-between text-slate-300 text-xs mb-1">
@@ -590,20 +583,6 @@ const exportReport = () => {
           Peajes, comidas y parqueos
         </div>
       </div>
-
-      <!-- Métrica 4: Promedio por Viaje -->
-      <div class="bg-brand-card border border-brand-border rounded-xl p-4 shadow-sm flex flex-col justify-between">
-        <div class="flex items-center justify-between text-slate-300 text-xs mb-1">
-          <span class="uppercase font-bold tracking-wider">Promedio / Viaje</span>
-          <TrendingUp class="w-4 h-4 text-emerald-400" />
-        </div>
-        <div class="text-xl md:text-2xl font-extrabold text-slate-100 font-heading">
-          {{ formatMoney(averagePerService) }}
-        </div>
-        <div class="text-xs text-slate-300 mt-1">
-          Ingreso medio por servicio
-        </div>
-      </div>
     </div>
 
     <!-- ======================================================== -->
@@ -620,7 +599,6 @@ const exportReport = () => {
               { key: 'hoy', label: 'Hoy' },
               { key: 'semana', label: 'Semana' },
               { key: 'mes', label: 'Este Mes' },
-              { key: 'mes-anterior', label: 'Mes Anterior' },
               { key: 'rango', label: 'Rango' }
             ]"
             :key="period.key"

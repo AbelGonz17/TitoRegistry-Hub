@@ -356,7 +356,6 @@ const handleSubmit = () => {
         <div v-else class="driver-fixed-pill">
           <span class="label">Chofer:</span>
           <span class="name">{{ activeDriver?.fullName || employee?.fullName || 'Chofer Activo' }}</span>
-          <span class="rate-badge">{{ activeDriver?.commissionRate || 25 }}% Comisión</span>
         </div>
 
         <!-- 2. Referencia / Cliente * -->
