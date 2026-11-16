@@ -193,10 +193,6 @@ const formatDate = (dateStr?: string) => {
               <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/[0.08] border border-white/[0.12] text-slate-200">
                 {{ currentUser?.role || 'Chofer' }}
               </span>
-              <span class="sm:hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                Cuenta Activa
-              </span>
             </div>
 
             <h1 class="text-xl sm:text-2xl font-extrabold text-white font-heading leading-tight truncate">
@@ -208,17 +204,6 @@ const formatDate = (dateStr?: string) => {
               <span class="opacity-50">•</span>
               <span>Activo desde {{ formatDate(currentUser?.createdAt) }}</span>
             </p>
-          </div>
-        </div>
-
-        <!-- Estado de Cuenta (Desktop) -->
-        <div class="hidden sm:flex items-center shrink-0">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-green/15 border border-brand-green/30 text-[13px] font-semibold text-brand-green-light select-none">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span>Cuenta Activa</span>
           </div>
         </div>
       </div>
@@ -289,27 +274,6 @@ const formatDate = (dateStr?: string) => {
               placeholder="+1 (809) 000-0000" 
               class="w-full px-3.5 py-2.5 bg-brand-charcoal border border-brand-border rounded-xl text-white text-sm placeholder-slate-400 outline-none focus:border-brand-green-light"
             />
-          </div>
-        </div>
-
-        <!-- Selector opcional de insignia dentro del mismo modo de edición -->
-        <div>
-          <label class="block text-slate-200 mb-1.5 font-semibold text-[13px]">Insignia de Perfil</label>
-          <div class="flex items-center gap-2 flex-wrap">
-            <button
-              v-for="av in avatarOptions"
-              :key="av"
-              type="button"
-              :class="[
-                'w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition-all cursor-pointer',
-                editForm.avatar === av
-                  ? 'bg-brand-green/25 border-brand-green-light scale-105 shadow-sm'
-                  : 'bg-brand-charcoal border-brand-border hover:border-brand-border-strong'
-              ]"
-              @click="editForm.avatar = av"
-            >
-              {{ av }}
-            </button>
           </div>
         </div>
 

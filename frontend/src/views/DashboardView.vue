@@ -144,6 +144,12 @@ const recentDriverServices = computed(() => {
     .slice(0, 5);
 });
 
+const recentFleetServices = computed(() => {
+  return [...driverAllServices.value]
+    .sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime())
+    .slice(0, 6);
+});
+
 // =========================================================================
 // FILTRADO DE SERVICIOS PARA EL PANEL DEL ADMINISTRADOR
 // =========================================================================
@@ -421,8 +427,6 @@ const exportDriverServicesReport = () => {
           <div>
             <div class="inline-flex items-center gap-2 px-2.5 py-0.5 bg-brand-green/20 border border-brand-green/35 rounded-full text-xs font-bold text-brand-green-light mb-1 uppercase tracking-wider">
               <span>{{ employeeSummary?.code || currentUser?.code || 'CHO-001' }}</span>
-              <span class="opacity-60">•</span>
-              <span>Comisión: {{ driverCommissionRate }}%</span>
             </div>
             <h1 class="text-xl md:text-2xl font-extrabold text-white font-heading leading-tight">
               {{ employeeSummary?.fullName || currentUser?.fullName || 'Chofer Activo' }}
@@ -441,87 +445,6 @@ const exportDriverServicesReport = () => {
           <Plus class="w-4 h-4 stroke-[2.5]" />
           <span>Registrar Viaje</span>
         </button>
-      </div>
-
-      <!-- Bloque de Resumen Financiero del Chofer (Lo que más le importa: Comisión 25%, Cobrado del Mes y Hoy) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-        <!-- KPI 1: Tu Comisión del Mes (25%) + Total Cobrado -->
-        <div class="md:col-span-2 bg-gradient-to-br from-emerald-950/60 via-brand-card to-brand-card border border-brand-green/45 rounded-2xl p-4 md:p-5 shadow-card flex flex-col justify-between gap-3">
-          <div class="flex items-center justify-between gap-2 flex-wrap">
-            <div class="flex items-center gap-2">
-              <div class="w-9 h-9 rounded-xl bg-brand-green/20 border border-brand-green/40 flex items-center justify-center text-brand-green-light">
-                <Wallet class="w-5 h-5" />
-              </div>
-              <div>
-                <span class="block text-xs font-bold text-slate-200 uppercase tracking-wider">
-                  Tu Comisión Ganada · Este Mes
-                </span>
-                <span class="text-[13px] text-slate-300">
-                  Calculada al {{ driverCommissionRate }}% sobre tus viajes
-                </span>
-              </div>
-            </div>
-            <span class="px-3 py-1 rounded-full bg-brand-green/20 border border-brand-green/40 text-xs font-extrabold text-brand-green-light">
-              {{ driverCommissionRate }}% Comisión
-            </span>
-          </div>
-
-          <div class="my-1">
-            <span class="text-3xl md:text-4xl font-extrabold font-heading text-brand-green-light tracking-tight">
-              {{ formatMoney(monthTotalCommission, true) }}
-            </span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3 pt-3 border-t border-brand-border/50 text-[13px]">
-            <div class="bg-brand-black/45 rounded-xl p-2.5 border border-white/[0.06]">
-              <span class="block text-slate-300 text-xs">Total cobrado (Mes)</span>
-              <strong class="text-white font-heading text-sm md:text-base">{{ formatMoney(monthTotalBilled) }}</strong>
-            </div>
-            <div class="bg-brand-black/45 rounded-xl p-2.5 border border-white/[0.06]">
-              <span class="block text-slate-300 text-xs">Viajes del mes</span>
-              <strong class="text-white font-heading text-sm md:text-base">{{ formatTripCount(monthServices.length) }}</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- KPI 2 y 3: Resumen de Hoy y de la Semana -->
-        <div class="flex flex-col gap-3.5">
-          <!-- Viajes de Hoy -->
-          <div class="flex-1 bg-brand-card border border-brand-border rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">Actividad de Hoy</span>
-              <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <CalendarCheck class="w-4 h-4" />
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-2xl font-extrabold font-heading text-white">{{ formatTripCount(todayServices.length) }}</span>
-              <span class="text-sm font-bold text-brand-green-light">{{ formatMoney(todayTotalCommission, true) }}</span>
-            </div>
-            <div class="text-[13px] text-slate-300 flex items-center justify-between pt-1.5 border-t border-brand-border/40">
-              <span>Cobrado hoy:</span>
-              <strong class="text-slate-100">{{ formatMoney(todayTotalBilled) }}</strong>
-            </div>
-          </div>
-
-          <!-- Últimos 7 días -->
-          <div class="flex-1 bg-brand-card border border-brand-border rounded-2xl p-4 shadow-sm flex flex-col justify-between gap-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">Últimos 7 Días</span>
-              <div class="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                <TrendingUp class="w-4 h-4" />
-              </div>
-            </div>
-            <div class="flex items-baseline justify-between gap-2">
-              <span class="text-2xl font-extrabold font-heading text-white">{{ formatTripCount(weekServices.length) }}</span>
-              <span class="text-sm font-bold text-brand-green-light">{{ formatMoney(weekTotalCommission, true) }}</span>
-            </div>
-            <div class="text-[13px] text-slate-300 flex items-center justify-between pt-1.5 border-t border-brand-border/40">
-              <span>Cobrado semana:</span>
-              <strong class="text-slate-100">{{ formatMoney(weekTotalBilled) }}</strong>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Actividad Reciente (Últimos 5 Viajes) con enlace al listado completo en Mis Servicios -->
@@ -559,7 +482,7 @@ const exportDriverServicesReport = () => {
           </div>
           <h3 class="text-base font-bold text-white">Aún no tienes viajes registrados</h3>
           <p class="text-sm text-slate-300">
-            Registra tu próximo servicio para ver aquí tu resumen de ingresos y comisiones.
+            Registra tu próximo servicio para ver aquí tu historial de viajes recientes.
           </p>
           <button 
             type="button"
@@ -655,13 +578,6 @@ const exportDriverServicesReport = () => {
                   </span>
                 </div>
               </div>
-
-              <div class="flex items-center gap-1.5 bg-brand-green/15 border border-brand-green/30 px-2.5 py-1 rounded-lg">
-                <span class="text-slate-200 text-xs">Tu comisión ({{ driverCommissionRate }}%):</span>
-                <strong class="text-brand-green-light font-heading font-extrabold text-sm">
-                  {{ formatMoney(getServiceEarnings(srv), true) }}
-                </strong>
-              </div>
             </div>
           </div>
         </div>
@@ -703,20 +619,10 @@ const exportDriverServicesReport = () => {
             </div>
           </div>
         </div>
-
-        <div class="flex items-center shrink-0">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.12] text-[13px] font-medium text-slate-200 select-none">
-            <span class="relative flex h-2 w-2">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span>Supervisión Activa</span>
-          </div>
-        </div>
       </div>
 
-      <!-- Tarjetas de Resumen de Flota (Administrador) -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+      <!-- Tarjetas de Resumen de Flota (Administrador: solo Viajes Completados y Total Facturado) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         <div class="bg-brand-card border border-brand-border hover:border-brand-border-strong rounded-xl p-4 shadow-sm flex items-center justify-between gap-3 transition-all">
           <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
@@ -724,11 +630,11 @@ const exportDriverServicesReport = () => {
             </div>
             <div class="truncate">
               <span class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Viajes Completados</span>
-              <span class="text-[13px] text-slate-200 truncate">{{ selectedDriverLabel }}</span>
+              <span class="text-[13px] text-slate-200 truncate">Flota Completa</span>
             </div>
           </div>
           <div class="text-right shrink-0">
-            <span class="text-2xl md:text-3xl font-extrabold font-heading text-white">{{ totalCompletedServices }}</span>
+            <span class="text-2xl md:text-3xl font-extrabold font-heading text-white">{{ driverAllServices.length }}</span>
           </div>
         </div>
 
@@ -748,265 +654,110 @@ const exportDriverServicesReport = () => {
             </span>
           </div>
         </div>
-
-        <div class="bg-brand-card border border-brand-border rounded-xl p-4 shadow-sm flex items-center justify-between gap-3 transition-all">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-              <Wallet class="w-5 h-5" />
-            </div>
-            <div class="truncate">
-              <span class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Comisiones Choferes</span>
-              <span class="text-[13px] text-slate-300">Acumulado del filtro</span>
-            </div>
-          </div>
-          <div class="text-right shrink-0">
-            <span class="text-xl md:text-2xl font-extrabold font-heading text-brand-green-light tracking-tight">
-              {{ formatMoney(totalAdminCommissions) }}
-            </span>
-          </div>
-        </div>
       </div>
 
-      <!-- Historial de Servicios de la Flota (Administrador) -->
+      <!-- Vista Rápida de Servicios de la Flota (Sin filtros recargados) -->
       <div class="bg-brand-card border border-brand-border rounded-xl p-4 md:p-5 shadow-card">
         <div class="flex items-center justify-between flex-wrap gap-3 mb-4 pb-3 border-b border-brand-border/40">
-          <div class="flex items-center gap-2.5 flex-wrap">
-            <h2 class="text-base md:text-lg font-extrabold text-white font-heading tracking-tight">
-              Servicios de la Flota
-            </h2>
-            <span class="bg-brand-green/20 text-brand-green-light px-2.5 py-0.5 rounded-full text-xs font-bold border border-brand-green/30">
-              {{ formatTripCount(filteredServices.length) }}
-            </span>
-
-            <button 
-              type="button"
-              class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-brand-green hover:from-emerald-500 hover:to-brand-green-light text-white text-[13px] font-heading font-bold rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-              @click="exportDriverServicesReport"
-              :disabled="filteredServices.length === 0 || exportingPdf"
-            >
-              <FileDown class="w-4 h-4" />
-              <span>{{ exportingPdf ? 'Generando...' : `Generar informe PDF (${selectedDriverLabel})` }}</span>
-            </button>
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h2 class="text-base md:text-lg font-extrabold text-white font-heading tracking-tight">
+                Servicios de la Flota
+              </h2>
+              <span class="bg-brand-green/20 text-brand-green-light px-2.5 py-0.5 rounded-full text-xs font-bold border border-brand-green/30">
+                {{ formatTripCount(driverAllServices.length) }}
+              </span>
+            </div>
+            <p class="text-[13px] text-slate-300 mt-0.5">
+              Actividad reciente de traslados registrados por los choferes
+            </p>
           </div>
 
-          <!-- Filtros de Período y Búsqueda -->
-          <div class="flex items-center gap-2.5 flex-wrap">
-            <div class="flex items-center gap-1.5">
-              <label class="text-xs font-bold text-slate-300 uppercase tracking-wider" for="driver-filter">Chofer:</label>
-              <select 
-                id="driver-filter" 
-                v-model="selectedDriverId" 
-                class="px-3 py-1.5 bg-brand-charcoal border border-brand-border rounded-lg text-white text-[13px] font-semibold focus:border-brand-green-light outline-none cursor-pointer transition-all"
-              >
-                <option value="all">Todos (Flota Completa)</option>
-                <option v-for="d in driversList" :key="d.id" :value="d.id">
-                  {{ d.fullName }} ({{ d.code || 'CHO' }})
-                </option>
-              </select>
-            </div>
-
-            <div class="flex bg-brand-black/80 border border-brand-border rounded-lg p-0.5 gap-0.5">
-              <button 
-                v-for="f in [
-                  { key: 'todos', label: 'Todos' },
-                  { key: 'hoy', label: 'Hoy' },
-                  { key: 'semana', label: 'Semana' },
-                  { key: 'mes', label: 'Mes' },
-                  { key: 'rango', label: 'Rango' }
-                ]"
-                :key="f.key"
-                type="button"
-                :class="[
-                  'px-2.5 py-1 rounded-md text-[13px] font-semibold transition-all cursor-pointer',
-                  activeFilter === f.key ? 'bg-brand-green text-white shadow-sm' : 'text-slate-300 hover:text-white'
-                ]" 
-                @click="activeFilter = f.key"
-              >
-                {{ f.label }}
-              </button>
-            </div>
-
-            <div v-if="activeFilter === 'rango'" class="flex items-center gap-1.5 bg-brand-charcoal border border-brand-border rounded-lg px-2.5 py-1 text-[13px]">
-              <input v-model="customDateFrom" type="date" class="bg-transparent text-white text-[13px] outline-none cursor-pointer" title="Fecha inicial" />
-              <span class="text-slate-300 text-xs">a</span>
-              <input v-model="customDateTo" type="date" class="bg-transparent text-white text-[13px] outline-none cursor-pointer" title="Fecha final" />
-            </div>
-
-            <div class="relative flex items-center min-w-[190px] md:min-w-[230px]">
-              <Search class="w-4 h-4 text-slate-300 absolute left-2.5 pointer-events-none" />
-              <input 
-                v-model="searchQuery" 
-                type="text" 
-                class="w-full pl-8 pr-7 py-1.5 bg-brand-charcoal border border-brand-border rounded-lg text-white text-[13px] placeholder-slate-400 focus:border-brand-green-light outline-none transition-all" 
-                placeholder="Buscar cliente, ruta o chofer..."
-              />
-              <button v-if="searchQuery" type="button" class="absolute right-2 text-slate-300 hover:text-white cursor-pointer" @click="searchQuery = ''">
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <button 
+            type="button"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] text-[13px] font-semibold text-brand-green-light hover:text-white transition-all cursor-pointer"
+            @click="goToServices"
+          >
+            <span>Ver por chofer e informes</span>
+            <ArrowRight class="w-4 h-4" />
+          </button>
         </div>
 
         <div v-if="loading" class="py-12 text-center flex flex-col items-center justify-center gap-2.5">
           <div class="w-7 h-7 border-2 border-brand-green border-t-transparent rounded-full animate-spin"></div>
-          <p class="text-sm text-slate-300">Cargando información de viajes...</p>
+          <p class="text-sm text-slate-300">Cargando servicios recientes...</p>
         </div>
 
-        <div v-else-if="filteredServices.length === 0" class="py-12 text-center flex flex-col items-center justify-center gap-2.5 max-w-md mx-auto">
+        <div v-else-if="recentFleetServices.length === 0" class="py-12 text-center flex flex-col items-center justify-center gap-2.5 max-w-md mx-auto">
           <FileText class="w-10 h-10 text-slate-400 mb-1" />
-          <h3 class="text-base font-bold text-white">No se encontraron viajes</h3>
+          <h3 class="text-base font-bold text-white">No hay servicios registrados</h3>
           <p class="text-sm text-slate-300">
-            {{ selectedDriverId !== 'all' ? `El chofer ${selectedDriverLabel} no tiene viajes en este período.` : 'No hay servicios registrados en el período seleccionado.' }}
+            Aquí aparecerán de forma inmediata los últimos viajes completados por la flota.
           </p>
         </div>
 
-        <!-- Tabla para Escritorio (Desktop) -->
-        <div v-else class="hidden md:block overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="border-b border-brand-border/50 text-xs font-bold text-slate-300 uppercase tracking-wider">
-                <th class="py-3 px-3">Código</th>
-                <th class="py-3 px-3">Chofer</th>
-                <th class="py-3 px-3">Fecha</th>
-                <th class="py-3 px-3">Cliente / Ref.</th>
-                <th class="py-3 px-3">Ruta / Servicio</th>
-                <th class="py-3 px-3">Gastos / Notas</th>
-                <th class="py-3 px-3">Estado</th>
-                <th class="py-3 px-3 text-right">Cobrado</th>
-                <th class="py-3 px-3 text-right">Comisión</th>
-                <th class="py-3 px-3 text-center">Acción</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-brand-border/25 text-[13px]">
-              <tr v-for="srv in filteredServices" :key="srv.id" class="hover:bg-white/[0.03] transition-colors">
-                <td class="py-3 px-3">
-                  <span class="inline-block px-2 py-0.5 bg-white/[0.06] border border-white/[0.1] rounded font-mono text-xs text-slate-200 font-medium">
-                    {{ srv.serviceCode }}
-                  </span>
-                </td>
-                <td class="py-3 px-3">
-                  <div class="flex items-center gap-1.5">
-                    <Car class="w-4 h-4 text-brand-green-light shrink-0" />
-                    <span class="font-semibold text-white">{{ srv.driverName || srv.employeeName || 'Chofer' }}</span>
-                  </div>
-                </td>
-                <td class="py-3 px-3 text-slate-200">{{ formatDate(srv.serviceDate) }}</td>
-                <td class="py-3 px-3">
-                  <div class="font-semibold text-white">{{ getClientName(srv) }}</div>
-                  <div v-if="srv.clientPhone" class="text-xs text-slate-300">{{ srv.clientPhone }}</div>
-                </td>
-                <td class="py-3 px-3">
-                  <div class="font-semibold text-slate-100">{{ srv.serviceTypeName }}</div>
-                  <div v-if="getServiceRoute(srv)" class="text-xs text-slate-300 truncate max-w-xs flex items-center gap-1 mt-0.5">
-                    <MapPin class="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span class="truncate">{{ getServiceRoute(srv) }}</span>
-                  </div>
-                </td>
-                <td class="py-3 px-3">
-                  <div v-if="srv.notes" class="inline-flex items-center gap-1.5 text-xs text-slate-200 bg-white/[0.06] border border-white/[0.12] rounded-lg px-2.5 py-1 max-w-xs truncate" :title="srv.notes">
-                    <Receipt class="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                    <span v-if="parseServiceExpense(srv.notes, srv.id).amount > 0" class="truncate">
-                      Gastos: <strong>{{ formatMoney(parseServiceExpense(srv.notes, srv.id).amount) }}</strong>
-                      ({{ parseServiceExpense(srv.notes, srv.id).paidInCash ? 'Efectivo' : 'Planilla' }})
-                    </span>
-                    <span v-else class="truncate">{{ parseServiceExpense(srv.notes, srv.id).detail }}</span>
-                  </div>
-                  <span v-else class="text-xs text-slate-400">-</span>
-                </td>
-                <td class="py-3 px-3">
-                  <span :class="['status-badge', (srv.statusName || 'completado').toLowerCase()]">
-                    {{ srv.statusName || 'Completado' }}
-                  </span>
-                </td>
-                <td class="py-3 px-3 text-right font-heading font-semibold text-white">
-                  {{ formatMoney(srv.priceCharged) }}
-                </td>
-                <td class="py-3 px-3 text-right font-heading font-bold text-brand-green-light">
-                  {{ formatMoney(getServiceEarnings(srv), true) }}
-                </td>
-                <td class="py-3 px-3 text-center">
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-brand-green/20 border border-white/[0.12] hover:border-brand-green/40 text-xs font-semibold text-slate-200 hover:text-brand-green-light transition-all cursor-pointer"
-                    @click="$emit('edit-service', srv)"
-                    title="Editar servicio"
-                  >
-                    <Pencil class="w-3.5 h-3.5 text-brand-green-light" />
-                    <span>Editar</span>
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Tarjetas en Móvil para el Administrador -->
-        <div v-if="!loading && filteredServices.length > 0" class="md:hidden flex flex-col gap-3">
+        <!-- Listado rápido y limpio (Tarjetas compactas de lectura rápida) -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div 
-            v-for="srv in filteredServices" 
+            v-for="srv in recentFleetServices" 
             :key="srv.id" 
-            class="bg-brand-charcoal/90 border border-brand-border rounded-xl p-3.5 flex flex-col gap-2.5"
+            class="bg-brand-charcoal/90 border border-brand-border hover:border-brand-border-strong rounded-xl p-3.5 flex flex-col justify-between gap-2.5 transition-all"
           >
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-white/[0.06] border border-white/[0.1] rounded font-mono text-xs text-slate-200 font-medium">
-                  {{ srv.serviceCode }}
-                </span>
-                <span class="text-slate-200 text-[13px] flex items-center gap-1">
-                  <Calendar class="w-3.5 h-3.5 text-brand-green-light" />
-                  <span>{{ formatDate(srv.serviceDate) }}</span>
-                </span>
-              </div>
-              <span :class="['status-badge', (srv.statusName || 'completado').toLowerCase()]">
-                {{ srv.statusName || 'Completado' }}
-              </span>
-            </div>
-
-            <div class="flex flex-col gap-1 text-[13px]">
-              <div class="text-slate-200 flex items-center gap-1.5">
-                <Car class="w-4 h-4 text-brand-green-light shrink-0" />
-                <span>Conductor: <strong class="text-white">{{ srv.driverName || srv.employeeName || 'Chofer' }}</strong></span>
-              </div>
-              <div class="flex items-center justify-between gap-2">
-                <div class="text-sm text-white">
-                  <span class="text-slate-300">Cliente: </span>
-                  <strong class="font-bold">{{ getClientName(srv) }}</strong>
+            <!-- Cabecera compacta: Chofer + Fecha + Monto Cobrado -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-brand-green/15 border border-brand-green/30 flex items-center justify-center text-brand-green-light shrink-0">
+                  <Car class="w-4 h-4" />
                 </div>
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.07] hover:bg-brand-green/20 border border-white/[0.14] hover:border-brand-green/40 text-xs font-semibold text-slate-100 hover:text-brand-green-light transition-all cursor-pointer shrink-0 active:scale-95"
-                  @click="$emit('edit-service', srv)"
-                  title="Editar este servicio"
-                >
-                  <Pencil class="w-3.5 h-3.5 text-brand-green-light" />
-                  <span>Editar</span>
-                </button>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <strong class="text-sm font-bold text-white truncate">
+                      {{ srv.driverName || srv.employeeName || 'Chofer' }}
+                    </strong>
+                    <span class="px-1.5 py-0.5 bg-white/[0.06] border border-white/[0.1] rounded font-mono text-[11px] text-slate-300">
+                      {{ srv.serviceCode }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-slate-300 flex items-center gap-1 mt-0.5">
+                    <Calendar class="w-3 h-3 text-brand-green-light" />
+                    <span>{{ formatDate(srv.serviceDate) }}</span>
+                  </div>
+                </div>
               </div>
-              <p class="text-[13px] text-slate-200 font-medium">{{ srv.serviceTypeName }}</p>
-              <p v-if="getServiceRoute(srv)" class="text-[13px] text-slate-300 flex items-start gap-1">
-                <MapPin class="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                <span>{{ getServiceRoute(srv) }}</span>
-              </p>
 
-              <div v-if="srv.notes" class="text-xs text-slate-200 bg-white/[0.06] border border-white/[0.12] rounded-lg px-2.5 py-1.5 mt-1 flex items-center gap-1.5 flex-wrap">
-                <Receipt class="w-3.5 h-3.5 text-slate-300 shrink-0" />
-                <span v-if="parseServiceExpense(srv.notes, srv.id).amount > 0">
-                  <strong>Gastos: {{ formatMoney(parseServiceExpense(srv.notes, srv.id).amount) }}</strong>
-                  ({{ parseServiceExpense(srv.notes, srv.id).paidInCash ? '💵 Efectivo' : '⏳ Planilla' }}) — {{ parseServiceExpense(srv.notes, srv.id).detail }}
+              <div class="text-right shrink-0">
+                <span class="block text-sm md:text-base font-extrabold font-heading text-brand-green-light">
+                  {{ formatMoney(srv.priceCharged) }}
                 </span>
-                <span v-else>{{ parseServiceExpense(srv.notes, srv.id).detail }}</span>
+                <span :class="['status-badge text-[10px]', (srv.statusName || 'completado').toLowerCase()]">
+                  {{ srv.statusName || 'Completado' }}
+                </span>
               </div>
             </div>
 
-            <div class="flex items-center justify-between pt-2 border-t border-brand-border/40 text-[13px]">
-              <div>
-                <span class="text-slate-300">Cobrado: </span>
-                <strong class="text-white font-heading font-bold">{{ formatMoney(srv.priceCharged) }}</strong>
+            <!-- Cuerpo rápido: Cliente y Ruta -->
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-brand-border/40 text-[13px]">
+              <div class="min-w-0 flex-1">
+                <div class="text-white truncate">
+                  <span class="text-slate-300">Cliente: </span>
+                  <strong class="font-semibold">{{ getClientName(srv) }}</strong>
+                  <span class="text-slate-400 mx-1.5">•</span>
+                  <span class="text-brand-green-light font-medium">{{ srv.serviceTypeName }}</span>
+                </div>
+                <p v-if="getServiceRoute(srv)" class="text-xs text-slate-300 truncate mt-0.5">
+                  {{ getServiceRoute(srv) }}
+                </p>
               </div>
-              <div>
-                <span class="text-slate-300">Comisión: </span>
-                <strong class="text-brand-green-light font-heading font-bold">{{ formatMoney(getServiceEarnings(srv), true) }}</strong>
-              </div>
+
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/[0.06] hover:bg-brand-green/20 border border-white/[0.12] hover:border-brand-green/40 text-xs font-semibold text-slate-200 hover:text-brand-green-light transition-all cursor-pointer shrink-0"
+                @click="$emit('edit-service', srv)"
+                title="Editar servicio"
+              >
+                <Pencil class="w-3.5 h-3.5 text-brand-green-light" />
+                <span>Editar</span>
+              </button>
             </div>
           </div>
         </div>

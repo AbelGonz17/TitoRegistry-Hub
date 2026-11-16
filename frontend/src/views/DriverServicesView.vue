@@ -186,7 +186,7 @@ const formatDate = (dateStr?: string) => {
             Mis Servicios
           </h1>
           <p class="text-[13px] text-slate-300 hidden sm:block">
-            Historial completo de traslados, cobros y comisiones
+            Historial completo de traslados y servicios registrados
           </p>
         </div>
         <button 
@@ -221,7 +221,7 @@ const formatDate = (dateStr?: string) => {
       </div>
       <h2 class="text-lg font-bold text-white font-heading">Aún no tienes viajes registrados</h2>
       <p class="text-sm text-slate-300 leading-relaxed">
-        Comienza a registrar los servicios y traslados que realices para acumular tus ganancias por comisión ({{ commissionRate }}%).
+        Comienza a registrar los servicios y traslados que realices para llevar tu historial de viajes al día.
       </p>
       <button 
         type="button"
@@ -280,56 +280,7 @@ const formatDate = (dateStr?: string) => {
       </div>
 
       <!-- ======================================================== -->
-      <!-- 3. BLOQUE "TOTAL COBRADO / TU COMISIÓN (25%)" ACTIVO     -->
-      <!-- ======================================================== -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-        <!-- Tarjeta 1: Tu Comisión (25%) del período -->
-        <div class="bg-gradient-to-br from-emerald-950/60 via-brand-card to-brand-card border border-brand-green/45 rounded-2xl p-4 shadow-card flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-11 h-11 rounded-xl bg-brand-green/20 border border-brand-green/40 flex items-center justify-center text-brand-green-light shrink-0">
-              <Wallet class="w-5 h-5" />
-            </div>
-            <div>
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                  Tu Comisión ({{ commissionRate }}%)
-                </span>
-                <span class="px-2 py-0.5 rounded-full bg-brand-green/20 border border-brand-green/35 text-[11px] font-bold text-brand-green-light">
-                  {{ periodLabel }}
-                </span>
-              </div>
-              <span class="text-2xl md:text-3xl font-extrabold font-heading text-brand-green-light tracking-tight block mt-0.5">
-                +{{ formatMoney(filteredTotalEarnings) }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tarjeta 2: Total Cobrado y Viajes del período -->
-        <div class="bg-brand-card border border-brand-border rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <div class="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0">
-              <Banknote class="w-5 h-5" />
-            </div>
-            <div>
-              <span class="block text-xs font-bold text-slate-200 uppercase tracking-wider">
-                Total Cobrado · {{ periodLabel }}
-              </span>
-              <span class="text-2xl md:text-3xl font-extrabold font-heading text-white tracking-tight block mt-0.5">
-                {{ formatMoney(filteredTotalBilled) }}
-              </span>
-            </div>
-          </div>
-          <div class="text-right shrink-0">
-            <span class="inline-block px-3 py-1 rounded-full bg-white/[0.06] border border-white/[0.12] text-xs font-bold text-slate-200">
-              {{ filteredTotalServices === 1 ? '1 viaje' : `${filteredTotalServices} viajes` }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ======================================================== -->
-      <!-- 4. LISTADO COMPLETO DE SERVICIOS REGISTRADOS             -->
+      <!-- 3. LISTADO COMPLETO DE SERVICIOS REGISTRADOS             -->
       <!-- ======================================================== -->
       <div class="bg-brand-card border border-brand-border rounded-2xl p-4 md:p-5 shadow-card">
         <div class="flex items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-brand-border/40 flex-wrap">
@@ -373,7 +324,6 @@ const formatDate = (dateStr?: string) => {
                 <th class="py-3 px-3">Gastos / Notas</th>
                 <th class="py-3 px-3">Estado</th>
                 <th class="py-3 px-3 text-right">Cobrado</th>
-                <th class="py-3 px-3 text-right">Tu Comisión ({{ commissionRate }}%)</th>
                 <th class="py-3 px-3 text-center">Acción</th>
               </tr>
             </thead>
@@ -426,9 +376,6 @@ const formatDate = (dateStr?: string) => {
                 </td>
                 <td class="py-3 px-3 text-right font-heading text-white font-semibold">
                   {{ formatMoney(srv.priceCharged) }}
-                </td>
-                <td class="py-3 px-3 text-right font-heading font-extrabold text-brand-green-light">
-                  +{{ formatMoney(getServiceEarnings(srv)) }}
                 </td>
                 <td class="py-3 px-3 text-center">
                   <button
@@ -524,17 +471,11 @@ const formatDate = (dateStr?: string) => {
               </div>
             </div>
 
-            <!-- Fila Inferior con etiquetas explícitas: Cobrado y Tu Comisión -->
+            <!-- Fila Inferior: Monto Cobrado -->
             <div class="flex items-center justify-between pt-2 border-t border-brand-border/40 text-[13px]">
               <div>
                 <span class="text-slate-300">Cobrado: </span>
                 <strong class="text-white font-heading font-bold">{{ formatMoney(srv.priceCharged) }}</strong>
-              </div>
-              <div class="bg-brand-green/15 border border-brand-green/30 px-2.5 py-1 rounded-lg">
-                <span class="text-slate-200 text-xs">Tu comisión: </span>
-                <strong class="text-brand-green-light font-heading font-extrabold text-sm">
-                  +{{ formatMoney(getServiceEarnings(srv)) }}
-                </strong>
               </div>
             </div>
           </div>
